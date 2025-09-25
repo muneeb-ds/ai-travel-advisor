@@ -1,0 +1,86 @@
+services:
+  db:
+    container_name: travel-advisor-db
+    image: pgvector/pgvector:pg15
+    env_file:
+      - ./.env
+    environment:
+      POSTGRES_USER: ${DATABASE_USER?Variable not set}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD?Variable not set}
+      POSTGRES_DB: ${DATABASE_NAME?Variable not set}
+    volumes:
+      - travel-advisor-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${DATABASE_USER}", "-d", "${DATABASE_NAME}"]
+      interval: 10s
+      retries: 5
+      start_period: 30s
+      timeout: 10s
+    restart: always
+    ports:
+      - "5434:5432"
+    networks:
+      - travel-advisor-network
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: travel-advisor-redis
+    restart: always
+    ports:
+      - "6380:6379"
+    networks:
+      - travel-advisor-network
+    volumes:
+      - travel-advisor-redis:/data
+
+  backend:
+    image: travel-advisor-backend
+    container_name: travel-advisor-backend
+    restart: always
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./.env
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+      redis:
+        condition: service_started
+        restart: true
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/migrations:/app/migrations
+      - ./backend/certs:/app/certs
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - travel-advisor-network
+
+  # frontend:
+  #   image: travel-advisor-frontend
+  #   restart: always
+  #   build:
+  #     context: .
+  #     dockerfile: frontend/Dockerfile
+  #   ports:
+  #     - "8501:8501"
+  #   env_file:
+  #     - ./.env
+  #   depends_on:
+  #     - backend
+  #   volumes:
+  #     - ./frontend:/app
+  #   command: streamlit run main.py --server.port=8501 --server.address=0.0.0.0
+  #   networks:
+  #     - travel-advisor-network
+
+volumes:
+  travel-advisor-postgres:
+  travel-advisor-redis:
+
+networks:
+  travel-advisor-network:
+    driver: bridge
