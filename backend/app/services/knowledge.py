@@ -3,18 +3,19 @@ Service layer for knowledge base management.
 """
 
 import logging
+import os
 import tempfile
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import UploadFile
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_openai.embeddings import OpenAIEmbeddings
+from langchain_postgres import PGVectorStore
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BadRequestError, ForbiddenError, NotFoundError
-from app.core.settings import settings
 from app.models.knowledge_base import KnowledgeBase
 from app.models.user import User, UserRole
 from app.repositories.destination import DestinationRepository
@@ -165,7 +166,9 @@ class KnowledgeService:
             user_id=user_id, org_id=org_id, knowledge_id=knowledge_id
         )
 
-    async def ingest_knowledge_file(self, knowledge_id: UUID, file: UploadFile) -> KnowledgeBase:
+    async def ingest_knowledge_file(
+        self, knowledge_id: UUID, file: UploadFile, pgvector_db_store: PGVectorStore
+    ) -> int:
         """Ingest a new knowledge base entry."""
         # Business logic: Validate file
         if not file:
@@ -175,12 +178,13 @@ class KnowledgeService:
         if file.size > 10 * 1024 * 1024:  # 10MB
             raise BadRequestError("File size must be less than 10MB")
 
-        # Business logic: Validate file type
-        if file.content_type not in ["application/pdf", "text/markdown"]:
+        # validate file extension
+        if file.filename.split(".")[-1] not in ["pdf", "md", "txt"]:
             raise BadRequestError("File must be a PDF or Markdown")
 
-        # create embedding in embeddings table
-        # return await self.knowledge_repo.ingest_knowledge_file(user_id=user_id, org_id=org_id, file=file)
+        # # Business logic: Validate file type
+        # if file.content_type not in ["application/pdf", "text/markdown", "text/plain"]:
+        #     raise BadRequestError("File must be a PDF, Markdown, or TXT file")
 
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix=file.filename) as tmp_file:
@@ -189,34 +193,38 @@ class KnowledgeService:
 
             if file.content_type == "application/pdf":
                 loader = PyPDFLoader(tmp_file_path)
-                documents: list[Document] = loader.load()
+                documents = loader.load()
             else:
-                with open(tmp_file_path) as f:
-                    documents = f.read()
-
-            # convert documents to text
-            if isinstance(documents, list):
-                document_text = ""
-                for doc in documents:
-                    document_text += f"{doc.page_content}\n"
+                with open(tmp_file_path, encoding="utf-8") as f:
+                    text_content = f.read()
+                documents = [Document(page_content=text_content)]
 
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-            chunks = text_splitter.split_text(document_text)
-            embeddings_model = OpenAIEmbeddings(openai_api_key=settings.OPENAI_API_KEY)
-            embeddings = embeddings_model.embed_documents(chunks)
+            chunks = text_splitter.split_documents(documents)
 
-            logger.critical(f"Documents items: {documents}")
-            logger.critical(f"Documents items: {document_text}")
-            logger.critical(f"Chunks items: {chunks}")
-            logger.critical(f"Embedding items: {embeddings}")
+            # Add knowledge_id to metadata
+            for i, chunk in enumerate(chunks):
+                chunk.metadata["knowledge_item_id"] = str(knowledge_id)
+                chunk.metadata["chunk_idx"] = i
+                chunk.metadata["created_at"] = datetime.now(UTC)
 
-            embedding_items = await self.knowledge_repo.ingest_knowledge_file(
-                knowledge_id=knowledge_id, chunks=chunks, embeddings=embeddings
-            )
+            await pgvector_db_store.aadd_documents(chunks)
+            return len(chunks)
 
-            return embedding_items
         finally:
             if "tmp_file_path" in locals():
-                import os
-
                 os.unlink(tmp_file_path)
+
+    async def similarity_search(
+        self,
+        pgvector_db_store: PGVectorStore,
+        query: str,
+        knowledge_id: UUID | None = None,
+        k: int = 5,
+    ) -> list[Document]:
+        """Perform similarity search on the vector store."""
+        filter_metadata = {}
+        if knowledge_id:
+            filter_metadata["knowledge_item_id"] = str(knowledge_id)
+
+        return await pgvector_db_store.asimilarity_search(query, k=k, filter=filter_metadata)

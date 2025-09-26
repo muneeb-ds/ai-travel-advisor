@@ -5,10 +5,12 @@ API routes for knowledge base management.
 import logging
 
 from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
+from langchain_postgres import PGVectorStore
 
 from app.api.dependencies import get_current_user, knowledge_service
 from app.core.exceptions import BadRequestError, ForbiddenError, NotFoundError
 from app.core.limiter import limiter
+from app.core.pgvector import get_embedding_pgvector_db_store
 from app.models.user import User
 from app.schemas import knowledge_base as schemas
 from app.services.knowledge import KnowledgeService
@@ -88,7 +90,6 @@ async def get_knowledge_entry(
 async def create_knowledge_entry(
     request: Request,  # noqa: ARG001
     knowledge_data: schemas.KnowledgeBaseItemCreate,
-    # destination_id: UUID,
     knowledge_service: KnowledgeService = Depends(knowledge_service),
     user: User = Depends(get_current_user),
 ):
@@ -114,19 +115,24 @@ async def create_knowledge_entry(
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
-@router.post("/{knowledge_id}/ingest-file")
+@router.post(
+    "/{knowledge_id}/ingest-file", status_code=status.HTTP_201_CREATED, response_model=dict
+)
 @limiter.limit("60/minute")
 async def ingest_knowledge_file(
     request: Request,  # noqa: ARG001
     knowledge_id: str,
     file: UploadFile = File(...),
     knowledge_service: KnowledgeService = Depends(knowledge_service),
+    pgvector_db_store: PGVectorStore = Depends(get_embedding_pgvector_db_store),
     _user: User = Depends(get_current_user),
 ):
     """Ingest a new knowledge base entry."""
     try:
-        entry = await knowledge_service.ingest_knowledge_file(knowledge_id=knowledge_id, file=file)
-        return entry
+        num_chunks = await knowledge_service.ingest_knowledge_file(
+            knowledge_id=knowledge_id, file=file, pgvector_db_store=pgvector_db_store
+        )
+        return {"message": f"Successfully ingested {num_chunks} chunks"}
     except NotFoundError as e:
         logger.exception(e)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))

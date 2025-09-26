@@ -35,7 +35,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 async def signup(
     request: Request,  # noqa: ARG001
     signup_data: OrgUserCreateRequest,
-    auth_service: AuthService = Depends(get_auth_service)
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> AuthResponse:
     """
     Register a new user and create an organization for them.
@@ -70,7 +70,8 @@ async def login(
 @limiter.limit("60/minute")
 async def refresh_token(
     request: Request,  # noqa: ARG001
-    refresh_data: RefreshTokenRequest, auth_service: AuthService = Depends(get_auth_service)
+    refresh_data: RefreshTokenRequest,
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> TokenResponse:
     """
     Generate a new access token using a valid refresh token.
@@ -96,6 +97,7 @@ async def logout(
     """
     await auth_service.logout(refresh_data.refresh_token)
 
+
 @router.get(
     "/me",
     response_model=UserResponse,
@@ -104,7 +106,7 @@ async def logout(
 @limiter.limit("60/minute")
 async def get_me(
     request: Request,  # noqa: ARG001,
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
 ) -> UserResponse:
     """
     Get current authenticated user's information.

@@ -8,7 +8,6 @@ from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.models.embedding import Embedding
 from app.models.knowledge_base import KnowledgeBase
 
 
@@ -158,22 +157,3 @@ class KnowledgeBaseRepository:
             )
         )
         return result.scalar_one_or_none() is not None
-
-    async def ingest_knowledge_file(
-        self, knowledge_id: UUID, chunks: list[str], embeddings: list[list[float]]
-    ) -> list[Embedding]:
-        """Create a new knowledge base entry and its embeddings."""
-        # Create embedding entries
-        embedding_items = []
-        for i, (chunk, embedding_vector) in enumerate(zip(chunks, embeddings, strict=False)):
-            embedding_items.append(
-                Embedding(
-                    knowledge_item_id=knowledge_id,
-                    chunk_idx=i,
-                    content=chunk,
-                    embedding=embedding_vector,
-                )
-            )
-
-        self.db.add_all(embedding_items)
-        await self.db.flush()

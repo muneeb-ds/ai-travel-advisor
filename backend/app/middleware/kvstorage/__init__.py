@@ -1,6 +1,7 @@
 """
 Key value storage class
 """
+
 from .base import BaseKVStorage as KVStorage
 from .memory import MemoryStorage
 from .redis import RedisStorage
