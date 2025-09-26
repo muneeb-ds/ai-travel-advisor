@@ -33,6 +33,22 @@ services:
     volumes:
       - travel-advisor-redis:/data
 
+  prestart:
+    image: travel-advisor-backend
+    container_name: prestart-travel-advisor-backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    networks:
+      - travel-advisor-network
+    depends_on:
+      db:
+        condition: service_healthy
+        restart: true
+    command: bash scripts/prestart.sh
+    env_file:
+      - ./.env
+
   backend:
     image: travel-advisor-backend
     container_name: travel-advisor-backend
@@ -48,6 +64,8 @@ services:
       db:
         condition: service_healthy
         restart: true
+      prestart:
+        condition: service_completed_successfully
       redis:
         condition: service_started
         restart: true
