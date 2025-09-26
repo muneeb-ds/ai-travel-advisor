@@ -8,4 +8,16 @@ from .organization import Organization
 from .refresh_token import RefreshToken
 from .user import User, UserRole
 
-__all__ = ["AgentRun", "AgentRunStatus", "Destination", "Embedding", "Itinerary", "KnowledgeBase", "KnowledgeScope", "Organization", "RefreshToken", "User", "UserRole"]
+__all__ = [
+    "AgentRun",
+    "AgentRunStatus",
+    "Destination",
+    "Embedding",
+    "Itinerary",
+    "KnowledgeBase",
+    "KnowledgeScope",
+    "Organization",
+    "RefreshToken",
+    "User",
+    "UserRole",
+]

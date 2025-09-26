@@ -23,7 +23,9 @@ class RefreshToken(Base):
     token_hash = Column(String(255), nullable=False)  # Hashed token for server-side storage
 
     # User relationship
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
 
     # Token metadata
     is_revoked = Column(Boolean, default=False, nullable=False)

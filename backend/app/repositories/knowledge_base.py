@@ -4,7 +4,7 @@ Repository layer for knowledge base data access.
 
 from uuid import UUID
 
-from sqlalchemy import delete, select, update, or_, func
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
@@ -27,12 +27,9 @@ class KnowledgeBaseRepository:
             .options(joinedload(KnowledgeBase.destination))
             .filter(
                 KnowledgeBase.org_id == org_id,
-                or_(
-                    KnowledgeBase.user_id == user_id,
-                    KnowledgeBase.scope == "org_public"
-                )
+                or_(KnowledgeBase.user_id == user_id, KnowledgeBase.scope == "org_public"),
             )
-            .filter(KnowledgeBase.is_active == True)
+            .filter(KnowledgeBase.is_active)
             .offset(skip)
             .limit(limit)
         )
@@ -47,32 +44,24 @@ class KnowledgeBaseRepository:
             select(KnowledgeBase)
             .options(joinedload(KnowledgeBase.destination))
             .filter(KnowledgeBase.destination_id == destination_id, KnowledgeBase.org_id == org_id)
-            .filter(
-                or_(
-                    KnowledgeBase.user_id == user_id,
-                    KnowledgeBase.scope == "org_public"
-                )
-            )
-            .filter(KnowledgeBase.is_active == True)
+            .filter(or_(KnowledgeBase.user_id == user_id, KnowledgeBase.scope == "org_public"))
+            .filter(KnowledgeBase.is_active)
             .offset(skip)
             .limit(limit)
         )
         result = await self.db.execute(query)
         return result.unique().scalars().all()
 
-    async def get_by_id(self, user_id: UUID, org_id: UUID, knowledge_id: UUID) -> KnowledgeBase | None:
+    async def get_by_id(
+        self, user_id: UUID, org_id: UUID, knowledge_id: UUID
+    ) -> KnowledgeBase | None:
         """Get a knowledge entry by its ID where user is creator or scope is org_public."""
         query = (
             select(KnowledgeBase)
             .options(joinedload(KnowledgeBase.destination))
             .filter(KnowledgeBase.id == knowledge_id, KnowledgeBase.org_id == org_id)
-            .filter(
-                or_(
-                    KnowledgeBase.user_id == user_id,
-                    KnowledgeBase.scope == "org_public"
-                )
-            )
-            .filter(KnowledgeBase.is_active == True)
+            .filter(or_(KnowledgeBase.user_id == user_id, KnowledgeBase.scope == "org_public"))
+            .filter(KnowledgeBase.is_active)
         )
         result = await self.db.execute(query)
         return result.unique().scalar_one_or_none()
@@ -94,8 +83,12 @@ class KnowledgeBaseRepository:
         """Update an existing knowledge entry."""
         query = (
             update(KnowledgeBase)
-            .where(KnowledgeBase.id == knowledge.id, KnowledgeBase.user_id == user_id, KnowledgeBase.org_id == org_id)
-            .filter(KnowledgeBase.is_active == True)
+            .where(
+                KnowledgeBase.id == knowledge.id,
+                KnowledgeBase.user_id == user_id,
+                KnowledgeBase.org_id == org_id,
+            )
+            .filter(KnowledgeBase.is_active)
             .values(update_data)
         )
         await self.db.execute(query)
@@ -107,8 +100,12 @@ class KnowledgeBaseRepository:
         """Soft delete a knowledge entry."""
         query = (
             update(KnowledgeBase)
-            .where(KnowledgeBase.id == knowledge_id, KnowledgeBase.user_id == user_id, KnowledgeBase.org_id == org_id)
-            .filter(KnowledgeBase.is_active == True)
+            .where(
+                KnowledgeBase.id == knowledge_id,
+                KnowledgeBase.user_id == user_id,
+                KnowledgeBase.org_id == org_id,
+            )
+            .filter(KnowledgeBase.is_active)
             .values(is_active=False)
         )
         await self.db.execute(query)
@@ -116,9 +113,9 @@ class KnowledgeBaseRepository:
     async def purge(self, user_id: UUID, org_id: UUID, knowledge: KnowledgeBase) -> bool:
         """Delete a knowledge entry."""
         query = delete(KnowledgeBase).where(
-            KnowledgeBase.id == knowledge.id, 
-            KnowledgeBase.user_id == user_id, 
-            KnowledgeBase.org_id == org_id
+            KnowledgeBase.id == knowledge.id,
+            KnowledgeBase.user_id == user_id,
+            KnowledgeBase.org_id == org_id,
         )
         await self.db.execute(query)
         # return True
@@ -148,24 +145,27 @@ class KnowledgeBaseRepository:
     #     )
     #     return result.scalars().all()
 
-        # return [entry.content for entry in result.scalars().all()]
+    # return [entry.content for entry in result.scalars().all()]
 
     async def exists_by_id(self, user_id: UUID, org_id: UUID, knowledge_id: UUID) -> bool:
         """Check if a knowledge entry exists by ID."""
         result = await self.db.execute(
             select(KnowledgeBase).filter(
-                KnowledgeBase.id == knowledge_id, KnowledgeBase.user_id == user_id, KnowledgeBase.org_id == org_id, KnowledgeBase.is_active == True
+                KnowledgeBase.id == knowledge_id,
+                KnowledgeBase.user_id == user_id,
+                KnowledgeBase.org_id == org_id,
+                KnowledgeBase.is_active,
             )
         )
         return result.scalar_one_or_none() is not None
 
     async def ingest_knowledge_file(
-        self,  knowledge_id: UUID, chunks: list[str], embeddings: list[list[float]]
+        self, knowledge_id: UUID, chunks: list[str], embeddings: list[list[float]]
     ) -> list[Embedding]:
         """Create a new knowledge base entry and its embeddings."""
         # Create embedding entries
         embedding_items = []
-        for i, (chunk, embedding_vector) in enumerate(zip(chunks, embeddings)):
+        for i, (chunk, embedding_vector) in enumerate(zip(chunks, embeddings, strict=False)):
             embedding_items.append(
                 Embedding(
                     knowledge_item_id=knowledge_id,

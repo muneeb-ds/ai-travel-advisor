@@ -1,28 +1,28 @@
 """
 Service layer for knowledge base management.
 """
+
 import logging
 import tempfile
-from typing import List
 from uuid import UUID
 
+from fastapi import UploadFile
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_openai.embeddings import OpenAIEmbeddings
 from sqlalchemy.ext.asyncio import AsyncSession
-from fastapi import UploadFile
 
+from app.core.exceptions import BadRequestError, ForbiddenError, NotFoundError
 from app.core.settings import settings
 from app.models.knowledge_base import KnowledgeBase
+from app.models.user import User, UserRole
 from app.repositories.destination import DestinationRepository
 from app.repositories.knowledge_base import KnowledgeBaseRepository
 from app.schemas.knowledge_base import KnowledgeBaseItemCreate, KnowledgeBaseItemUpdate
-from app.models.user import User, UserRole
-from app.core.exceptions import NotFoundError, ForbiddenError, BadRequestError
-
 
 logger = logging.getLogger(__name__)
+
 
 class KnowledgeService:
     """Service class for knowledge base business logic."""
@@ -57,7 +57,9 @@ class KnowledgeService:
         self, user_id: UUID, org_id: UUID, knowledge_id: UUID
     ) -> KnowledgeBase | None:
         """Get a knowledge entry by its ID."""
-        return await self.knowledge_repo.get_by_id(user_id=user_id, org_id=org_id, knowledge_id=knowledge_id)
+        return await self.knowledge_repo.get_by_id(
+            user_id=user_id, org_id=org_id, knowledge_id=knowledge_id
+        )
 
     async def create_knowledge_entry(
         self, user_id: UUID, org_id: UUID, knowledge_data: KnowledgeBaseItemCreate
@@ -79,37 +81,53 @@ class KnowledgeService:
         self, user: User, org_id: UUID, knowledge_id: UUID, knowledge_data: KnowledgeBaseItemUpdate
     ) -> KnowledgeBase | None:
         """Update an existing knowledge entry."""
-        knowledge = await self.knowledge_repo.get_by_id(user_id=user.id, org_id=org_id, knowledge_id=knowledge_id)
+        knowledge = await self.knowledge_repo.get_by_id(
+            user_id=user.id, org_id=org_id, knowledge_id=knowledge_id
+        )
         if not knowledge:
             return None
 
-        if (knowledge.user_id != user.id or user.role != UserRole.ADMIN.value):
-            raise ForbiddenError("Only the creator of the knowledge entry or an organization admin can update it")
+        if knowledge.user_id != user.id or user.role != UserRole.ADMIN.value:
+            raise ForbiddenError(
+                "Only the creator of the knowledge entry or an organization admin can update it"
+            )
 
         update_data = knowledge_data.model_dump(exclude_unset=True)
         return await self.knowledge_repo.update(
             user_id=user.id, org_id=org_id, knowledge=knowledge, update_data=update_data
         )
 
-    async def soft_delete_knowledge_entry(self, user: User, org_id: UUID, knowledge_id: UUID) -> bool:
+    async def soft_delete_knowledge_entry(
+        self, user: User, org_id: UUID, knowledge_id: UUID
+    ) -> bool:
         """Soft delete a knowledge entry."""
-        knowledge = await self.knowledge_repo.get_by_id(user_id=user.id, org_id=org_id, knowledge_id=knowledge_id)
+        knowledge = await self.knowledge_repo.get_by_id(
+            user_id=user.id, org_id=org_id, knowledge_id=knowledge_id
+        )
         if not knowledge:
             raise NotFoundError(f"Knowledge entry with id {knowledge_id} not found")
 
-        if (knowledge.user_id != user.id or user.role != UserRole.ADMIN.value):
-            raise ForbiddenError("Only the creator of the knowledge entry or an organization admin can delete it")
+        if knowledge.user_id != user.id or user.role != UserRole.ADMIN.value:
+            raise ForbiddenError(
+                "Only the creator of the knowledge entry or an organization admin can delete it"
+            )
 
-        return await self.knowledge_repo.soft_delete(user_id=user.id, org_id=org_id, knowledge_id=knowledge_id)
+        return await self.knowledge_repo.soft_delete(
+            user_id=user.id, org_id=org_id, knowledge_id=knowledge_id
+        )
 
     async def delete_knowledge_entry(self, user: User, org_id: UUID, knowledge_id: UUID) -> bool:
         """Delete a knowledge entry."""
-        knowledge = await self.knowledge_repo.get_by_id(user_id=user.id, org_id=org_id, knowledge_id=knowledge_id)
+        knowledge = await self.knowledge_repo.get_by_id(
+            user_id=user.id, org_id=org_id, knowledge_id=knowledge_id
+        )
         if not knowledge:
             raise NotFoundError(f"Knowledge entry with id {knowledge_id} not found")
 
-        if (knowledge.user_id != user.id or user.role != UserRole.ADMIN.value):
-            raise ForbiddenError("Only the creator of the knowledge entry or an organization admin can delete it")
+        if knowledge.user_id != user.id or user.role != UserRole.ADMIN.value:
+            raise ForbiddenError(
+                "Only the creator of the knowledge entry or an organization admin can delete it"
+            )
 
         return await self.knowledge_repo.purge(user_id=user.id, org_id=org_id, knowledge=knowledge)
 
@@ -143,7 +161,9 @@ class KnowledgeService:
 
     async def knowledge_exists(self, user_id: UUID, org_id: UUID, knowledge_id: UUID) -> bool:
         """Check if a knowledge entry exists."""
-        return await self.knowledge_repo.exists_by_id(user_id=user_id, org_id=org_id, knowledge_id=knowledge_id)
+        return await self.knowledge_repo.exists_by_id(
+            user_id=user_id, org_id=org_id, knowledge_id=knowledge_id
+        )
 
     async def ingest_knowledge_file(self, knowledge_id: UUID, file: UploadFile) -> KnowledgeBase:
         """Ingest a new knowledge base entry."""
@@ -166,15 +186,14 @@ class KnowledgeService:
             with tempfile.NamedTemporaryFile(delete=False, suffix=file.filename) as tmp_file:
                 tmp_file.write(await file.read())
                 tmp_file_path = tmp_file.name
-            
 
             if file.content_type == "application/pdf":
                 loader = PyPDFLoader(tmp_file_path)
-                documents: List[Document] = loader.load()
+                documents: list[Document] = loader.load()
             else:
-                with open(tmp_file_path, "r") as f:
+                with open(tmp_file_path) as f:
                     documents = f.read()
-            
+
             # convert documents to text
             if isinstance(documents, list):
                 document_text = ""
@@ -185,7 +204,6 @@ class KnowledgeService:
             chunks = text_splitter.split_text(document_text)
             embeddings_model = OpenAIEmbeddings(openai_api_key=settings.OPENAI_API_KEY)
             embeddings = embeddings_model.embed_documents(chunks)
-
 
             logger.critical(f"Documents items: {documents}")
             logger.critical(f"Documents items: {document_text}")

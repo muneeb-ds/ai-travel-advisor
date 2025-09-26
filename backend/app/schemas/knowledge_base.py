@@ -25,6 +25,7 @@ class KnowledgeBaseItemCreate(BaseModel):
     scope: str = Field(..., min_length=1, description="Scope of the knowledge entry")
     destination_id: UUID = Field(..., description="Destination ID of the knowledge entry")
 
+
 class KnowledgeBaseItemUpdate(BaseModel):
     """Schema for updating a knowledge base entry."""
 

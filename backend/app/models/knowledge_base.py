@@ -5,7 +5,7 @@ Knowledge base model for the Travel Advisor application.
 import enum
 import uuid
 
-from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, String, Text, func
+from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from sqlalchemy.orm import relationship
 
@@ -33,8 +33,15 @@ class KnowledgeBase(Base):
     # source_ref = Column(Text, nullable=True)  # file path, URL, etc.
 
     # Multi-tenancy and relationships
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id = Column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     destination_id = Column(
         UUID(as_uuid=True), ForeignKey("destinations.id", ondelete="CASCADE"), nullable=True
     )  # Optional association

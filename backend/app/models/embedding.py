@@ -21,7 +21,10 @@ class Embedding(Base):
 
     # Reference to knowledge item
     knowledge_item_id = Column(
-        UUID(as_uuid=True), ForeignKey("knowledge_base.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("knowledge_base.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
 
     # Chunk information

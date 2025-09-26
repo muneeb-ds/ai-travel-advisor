@@ -1,8 +1,10 @@
-from uuid import UUID
 import logging
+from uuid import UUID
+
 import httpx
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
+
 # from sqlalchemy.ext.asyncio.engine import AsyncEngine
 # from sqlalchemy.ext.asyncio import Async
 # from sqlalchemy import inspect
@@ -30,13 +32,13 @@ class OpsService:
     async def get_healthz(self) -> dict:
         db_status = "healthy"
         embeddings_table_status = "healthy"
-        
+
         # Check database connectivity
         try:
             await self.db.execute(text("SELECT 1"))
         except Exception:
             db_status = "unhealthy"
-        
+
         # Check for embeddings table
         try:
             result = await self.db.execute(text("SELECT to_regclass('public.embeddings')"))
@@ -44,14 +46,21 @@ class OpsService:
 
         except Exception as e:
             logger.exception(e)
-            embeddings_table_status = "unhealthy" 
-            
-        # Check outbound connectivity
-        open_meteo_status = await self._check_outbound_connectivity("https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&current_weather=true")
-        nominatim_status = await self._check_outbound_connectivity("https://nominatim.openstreetmap.org/ui/search.html")
+            embeddings_table_status = "unhealthy"
 
-        is_healthy = all(status == "healthy" for status in [db_status, embeddings_table_status, open_meteo_status, nominatim_status])
-        
+        # Check outbound connectivity
+        open_meteo_status = await self._check_outbound_connectivity(
+            "https://api.open-meteo.com/v1/forecast?latitude=52.52&longitude=13.41&current_weather=true"
+        )
+        nominatim_status = await self._check_outbound_connectivity(
+            "https://nominatim.openstreetmap.org/ui/search.html"
+        )
+
+        is_healthy = all(
+            status == "healthy"
+            for status in [db_status, embeddings_table_status, open_meteo_status, nominatim_status]
+        )
+
         return {
             "status": "healthy" if is_healthy else "unhealthy",
             "checks": {

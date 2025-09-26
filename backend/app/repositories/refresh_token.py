@@ -29,9 +29,7 @@ class RefreshTokenRepository:
 
     async def get_refresh_token_by_jti(self, jti: str) -> RefreshToken | None:
         """Retrieve a refresh token by its JTI."""
-        result = await self.db.execute(
-            select(RefreshToken).where(RefreshToken.jti == jti)
-        )
+        result = await self.db.execute(select(RefreshToken).where(RefreshToken.jti == jti))
         return result.scalar_one_or_none()
 
     async def revoke_refresh_token(self, jti: str) -> None:
@@ -48,7 +46,8 @@ class RefreshTokenRepository:
         """Revoke all active refresh tokens for a user."""
         stmt = (
             update(RefreshToken)
-            .where(RefreshToken.user_id == user_id, RefreshToken.is_revoked == False)
+            .where(RefreshToken.user_id == user_id)
+            .where(RefreshToken.is_revoked)
             .values(is_revoked=True, used_at=datetime.now(UTC))
         )
         await self.db.execute(stmt)

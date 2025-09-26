@@ -4,10 +4,11 @@ Authentication API endpoints for user signup, login, logout and token refresh.
 
 import logging
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Request, status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.api.dependencies import get_auth_service, get_current_active_user
+from app.core.limiter import limiter
 from app.models.user import User
 from app.schemas.auth import (
     AuthResponse,
@@ -30,8 +31,10 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
     status_code=status.HTTP_201_CREATED,
     summary="User Registration",
 )
+@limiter.limit("60/minute")
 async def signup(
-    signup_data: OrgUserCreateRequest, 
+    request: Request,  # noqa: ARG001
+    signup_data: OrgUserCreateRequest,
     auth_service: AuthService = Depends(get_auth_service)
 ) -> AuthResponse:
     """
@@ -46,8 +49,11 @@ async def signup(
     response_model=TokenResponse,
     summary="User Login",
 )
+@limiter.limit("60/minute")
 async def login(
-    form_data: OAuth2PasswordRequestForm = Depends(), auth_service: AuthService = Depends(get_auth_service)
+    request: Request,  # noqa: ARG001
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> TokenResponse:
     """
     Authenticate a user with email and password (form data).
@@ -61,7 +67,9 @@ async def login(
     response_model=TokenResponse,
     summary="Refresh Access Token",
 )
+@limiter.limit("60/minute")
 async def refresh_token(
+    request: Request,  # noqa: ARG001
     refresh_data: RefreshTokenRequest, auth_service: AuthService = Depends(get_auth_service)
 ) -> TokenResponse:
     """
@@ -76,23 +84,28 @@ async def refresh_token(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="User Logout",
 )
+@limiter.limit("60/minute")
 async def logout(
-    refresh_data: RefreshTokenRequest, 
+    request: Request,  # noqa: ARG001
+    refresh_data: RefreshTokenRequest,
     _current_user: User = Depends(get_current_active_user),
-    auth_service: AuthService = Depends(get_auth_service)
+    auth_service: AuthService = Depends(get_auth_service),
 ) -> None:
     """
     Logs out the user by revoking their refresh token.
     """
     await auth_service.logout(refresh_data.refresh_token)
 
-
 @router.get(
     "/me",
     response_model=UserResponse,
     summary="Get Current User",
 )
-async def get_me(current_user: User = Depends(get_current_active_user)) -> UserResponse:
+@limiter.limit("60/minute")
+async def get_me(
+    request: Request,  # noqa: ARG001,
+    current_user: User = Depends(get_current_active_user)
+) -> UserResponse:
     """
     Get current authenticated user's information.
     """

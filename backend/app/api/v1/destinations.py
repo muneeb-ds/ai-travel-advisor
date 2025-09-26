@@ -2,11 +2,11 @@
 API routes for destination management.
 """
 
-
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.api.dependencies import destination_service, get_current_active_user
 from app.core.limiter import limiter
+
 # from app.decorators.idempotency import idempotent
 from app.models.user import User
 from app.schemas import destination as schemas
@@ -18,14 +18,16 @@ router = APIRouter(prefix="/destinations", tags=["destinations"])
 @router.get("/", response_model=list[schemas.Destination])
 @limiter.limit("60/minute")
 async def get_destinations(
-    request: Request,
+    request: Request,  # noqa: ARG001
     skip: int = 0,
     limit: int = 100,
     dest_service: DestinationService = Depends(destination_service),
     user: User = Depends(get_current_active_user),
 ):
     """Get all destinations with pagination."""
-    destinations = await dest_service.get_destinations(user_id=user.id, org_id=user.org_id, skip=skip, limit=limit)
+    destinations = await dest_service.get_destinations(
+        user_id=user.id, org_id=user.org_id, skip=skip, limit=limit
+    )
     return destinations
 
 
@@ -35,7 +37,7 @@ async def get_destinations(
 )
 @limiter.limit("60/minute")
 async def get_destination(
-    request: Request,
+    request: Request,  # noqa: ARG001
     destination_id: str,
     dest_service: DestinationService = Depends(destination_service),
     user: User = Depends(get_current_active_user),
@@ -55,7 +57,7 @@ async def get_destination(
 @router.post("/", response_model=schemas.Destination, status_code=status.HTTP_201_CREATED)
 @limiter.limit("60/minute")
 async def create_destination(
-    request: Request,
+    request: Request,  # noqa: ARG001
     destination_data: schemas.DestinationCreate,
     dest_service: DestinationService = Depends(destination_service),
     user: User = Depends(get_current_active_user),
@@ -76,7 +78,7 @@ async def create_destination(
 @router.patch("/{destination_id}", response_model=schemas.Destination)
 @limiter.limit("60/minute")
 async def update_destination(
-    request: Request, # noqa: ARG001
+    request: Request,  # noqa: ARG001
     destination_id: str,
     destination_data: schemas.DestinationUpdate,
     dest_service: DestinationService = Depends(destination_service),
@@ -86,7 +88,10 @@ async def update_destination(
 
     try:
         updated_destination = await dest_service.update_destination(
-            user_id=user.id, org_id=user.org_id, destination_id=destination_id, destination_data=destination_data
+            user_id=user.id,
+            org_id=user.org_id,
+            destination_id=destination_id,
+            destination_data=destination_data,
         )
         if not updated_destination:
             raise HTTPException(
@@ -101,7 +106,7 @@ async def update_destination(
 @router.delete("/{destination_id}", status_code=status.HTTP_204_NO_CONTENT)
 @limiter.limit("60/minute")
 async def delete_destination(
-    request: Request,
+    request: Request,  # noqa: ARG001
     destination_id: str,
     dest_service: DestinationService = Depends(destination_service),
     user: User = Depends(get_current_active_user),
@@ -117,4 +122,6 @@ async def delete_destination(
             detail=f"Destination with id {destination_id} not found",
         )
 
-    await dest_service.soft_delete_destination(user_id=user.id, org_id=user.org_id, destination_id=destination_id)
+    await dest_service.soft_delete_destination(
+        user_id=user.id, org_id=user.org_id, destination_id=destination_id
+    )

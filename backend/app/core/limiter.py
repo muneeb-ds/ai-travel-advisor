@@ -1,12 +1,11 @@
 import logging
-from typing import Optional
 
-from fastapi import HTTPException, Request
+from fastapi import Request
 from jose import JWTError, jwt
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
-from app.core.security import JWT_PUBLIC_KEY, oauth2_scheme
+from app.core.security import JWT_PUBLIC_KEY
 from app.core.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -25,10 +24,8 @@ def key_func(request: Request) -> str:
             parts = auth_header.split()
             if len(parts) == 2 and parts[0].lower() == "bearer":
                 token = parts[1]
-                payload = jwt.decode(
-                    token, JWT_PUBLIC_KEY, algorithms=[settings.JWT_ALGORITHM]
-                )
-                user_id: Optional[str] = payload.get("sub")
+                payload = jwt.decode(token, JWT_PUBLIC_KEY, algorithms=[settings.JWT_ALGORITHM])
+                user_id: str | None = payload.get("sub")
                 if user_id:
                     return user_id
     except JWTError as e:

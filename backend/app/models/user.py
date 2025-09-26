@@ -5,7 +5,7 @@ User model for the Travel Advisor application.
 import enum
 import uuid
 
-from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, Integer, String, func
+from sqlalchemy import Boolean, CheckConstraint, Column, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from sqlalchemy.orm import relationship
 
@@ -29,7 +29,12 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
 
     # Multi-tenancy
-    org_id = Column(UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False, index=True)
+    org_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
 
     # RBAC
     role = Column(String(20), nullable=False, default=UserRole.MEMBER.value)
@@ -47,7 +52,9 @@ class User(Base):
     # Relationships
     organization = relationship("Organization", back_populates="users")
     destinations = relationship("Destination", back_populates="user", cascade="all, delete-orphan")
-    knowledge_entries = relationship("KnowledgeBase", back_populates="user", cascade="all, delete-orphan")
+    knowledge_entries = relationship(
+        "KnowledgeBase", back_populates="user", cascade="all, delete-orphan"
+    )
     refresh_tokens = relationship(
         "RefreshToken", back_populates="user", cascade="all, delete-orphan"
     )

@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Union
+from typing import Any
 
-AnyDict = Dict[str, Any]
-AnyData = Union[str, AnyDict]
+AnyDict = dict[str, Any]
+AnyData = str | AnyDict
 
 
 class BaseKVStorage(ABC):
@@ -12,13 +12,13 @@ class BaseKVStorage(ABC):
         self.prefix = prefix
 
     @abstractmethod
-    async def get(self, key: str, deserialize: bool = True) -> Union[str, AnyDict, None]:
+    async def get(self, key: str, deserialize: bool = True) -> str | AnyDict | None:
         """
         Get the data by key
         """
 
     @abstractmethod
-    async def set(self, key: str, data: AnyData, expired: int = 0, **kwargs: Any) -> Union[str, None]:
+    async def set(self, key: str, data: AnyData, expired: int = 0, **kwargs: Any) -> str | None:
         """
         Store the data to the key
         """

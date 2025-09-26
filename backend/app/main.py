@@ -8,16 +8,17 @@ from typing import Any
 
 import redis.asyncio as redis
 from fastapi import FastAPI
-from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.api import router as api_router
 from app.core import cache
 from app.core.limiter import limiter
 from app.core.settings import RedisSettings, Settings, settings
 from app.middleware import IdempotentMiddleWare
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
+
 # from fastapi_idempotent import IdempotentMiddleWare
 
 
@@ -57,6 +58,7 @@ def lifespan_factory(
 
     return lifespan
 
+
 lifespan = lifespan_factory(settings)
 
 app = FastAPI(
@@ -72,7 +74,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     IdempotentMiddleWare,
-    idempotent_expired=settings.IDEMPOTENCY_TTL_SECONDS, # type: int
+    idempotent_expired=settings.IDEMPOTENCY_TTL_SECONDS,  # type: int
     redis_url=settings.REDIS_CACHE_URL,  # type: str
 )
 # Configure CORS

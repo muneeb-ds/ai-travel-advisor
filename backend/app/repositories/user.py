@@ -13,6 +13,7 @@ class UserRepository:
     def __init__(self, db: AsyncSession):
         """Initialize the repository with a database session."""
         self.db = db
+
     # --- User Operations ---
     async def get_user_by_id(self, user_id: UUID) -> User | None:
         """Get a user by their ID."""

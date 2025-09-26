@@ -1,12 +1,11 @@
 """
 Key value storage class
 """
-from typing import Dict
 from .base import BaseKVStorage as KVStorage
 from .memory import MemoryStorage
 from .redis import RedisStorage
 
-_kv_storage: Dict[str, KVStorage] = {}
+_kv_storage: dict[str, KVStorage] = {}
 
 
 def get_kv_storage(prefix: str, redis_url: str, testing: bool) -> KVStorage:

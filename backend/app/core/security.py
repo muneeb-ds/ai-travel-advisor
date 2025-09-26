@@ -45,4 +45,3 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def get_password_hash(password: str) -> str:
     """Hash a password using argon2."""
     return pwd_context.hash(password)
-

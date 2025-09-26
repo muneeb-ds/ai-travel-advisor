@@ -1,13 +1,12 @@
 import logging
 
 from fastapi import Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 from jose import JWTError, jwt
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import AsyncSessionLocal
-from app.core.security import oauth2_scheme
+from app.core.security import JWT_PUBLIC_KEY, oauth2_scheme
 from app.core.settings import settings
-from app.core.security import JWT_PUBLIC_KEY
 from app.models.user import User, UserRole
 from app.repositories.user import UserRepository
 from app.services.auth import AuthService
@@ -58,9 +57,7 @@ async def get_current_user(
     )
 
     try:
-        payload = jwt.decode(
-            token, JWT_PUBLIC_KEY, algorithms=[settings.JWT_ALGORITHM]
-        )
+        payload = jwt.decode(token, JWT_PUBLIC_KEY, algorithms=[settings.JWT_ALGORITHM])
         user_id = payload.get("sub")
         token_type = payload.get("type")
 
@@ -75,6 +72,7 @@ async def get_current_user(
     if user is None:
         raise credentials_exception
     return user
+
 
 async def get_current_active_user(
     current_user: User = Depends(get_current_user),

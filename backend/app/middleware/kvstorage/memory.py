@@ -1,15 +1,15 @@
 """
 This kv storage class is for test running purpose
 """
+
 import json
 from datetime import datetime, timedelta
-from typing import Any, Dict, Union, cast
+from typing import Any, cast
 
 from .base import BaseKVStorage
 
-
-AnyDict = Dict[str, Any]
-AnyData = Union[str, AnyDict]
+AnyDict = dict[str, Any]
+AnyData = str | AnyDict
 
 
 class MemoryStorage(BaseKVStorage):
@@ -19,9 +19,9 @@ class MemoryStorage(BaseKVStorage):
         super().__init__(prefix)
 
     def _format_key(self, key: str) -> str:
-        return "%s_%s" % (self.prefix, key)
+        return f"{self.prefix}_{key}"
 
-    async def get(self, key: str, deserialize: bool = True) -> Union[str, AnyDict, None]:
+    async def get(self, key: str, deserialize: bool = True) -> str | AnyDict | None:
         _key = self._format_key(key)
         if _key not in self.records:
             return None
@@ -37,10 +37,10 @@ class MemoryStorage(BaseKVStorage):
                 pass
         return cast(str, value)
 
-    async def set(self, key: str, data: AnyData, expired: int = 0, **kwargs: Any) -> Union[str, None]:
+    async def set(self, key: str, data: AnyData, expired: int = 0, **kwargs: Any) -> str | None:
         if isinstance(data, dict):
             data = json.dumps(data)
-        record: AnyDict = dict(data=data)
+        record: AnyDict = {"data": data}
         if expired != 0:
             record["expired_at"] = datetime.now() + timedelta(seconds=expired)
         self.records[self._format_key(key)] = record

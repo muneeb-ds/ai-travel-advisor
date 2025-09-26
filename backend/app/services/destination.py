@@ -21,15 +21,21 @@ class DestinationService:
         self, user_id: UUID, org_id: UUID, skip: int = 0, limit: int = 100
     ) -> list[Destination]:
         """Get all destinations with pagination."""
-        return await self.destination_repo.get_all(user_id=user_id, org_id=org_id, skip=skip, limit=limit)
+        return await self.destination_repo.get_all(
+            user_id=user_id, org_id=org_id, skip=skip, limit=limit
+        )
 
     async def get_destination_by_id(
         self, user_id: UUID, org_id: UUID, destination_id: UUID
     ) -> Destination | None:
         """Get a destination by its ID."""
-        return await self.destination_repo.get_by_id(user_id=user_id, org_id=org_id, destination_id=destination_id)
+        return await self.destination_repo.get_by_id(
+            user_id=user_id, org_id=org_id, destination_id=destination_id
+        )
 
-    async def get_destination_by_name(self, user_id: UUID, org_id: UUID, name: str) -> Destination | None:
+    async def get_destination_by_name(
+        self, user_id: UUID, org_id: UUID, name: str
+    ) -> Destination | None:
         """Get a destination by its name."""
         return await self.destination_repo.get_by_name(user_id=user_id, org_id=org_id, name=name)
 
@@ -38,7 +44,9 @@ class DestinationService:
     ) -> Destination:
         """Create a new destination."""
         # Business logic: Check if destination already exists
-        if await self.destination_repo.exists_by_name(user_id=user_id, org_id=org_id, name=destination_data.name):
+        if await self.destination_repo.exists_by_name(
+            user_id=user_id, org_id=org_id, name=destination_data.name
+        ):
             raise ValueError(f"Destination '{destination_data.name}' already exists")
 
         return await self.destination_repo.create(
@@ -71,9 +79,13 @@ class DestinationService:
             user_id=user_id, org_id=org_id, destination=destination, update_data=update_data
         )
 
-    async def soft_delete_destination(self, user_id: UUID, org_id: UUID, destination_id: UUID) -> bool:
+    async def soft_delete_destination(
+        self, user_id: UUID, org_id: UUID, destination_id: UUID
+    ) -> bool:
         """Delete a destination."""
-        return await self.destination_repo.soft_delete(user_id=user_id, org_id=org_id, destination=destination_id)
+        return await self.destination_repo.soft_delete(
+            user_id=user_id, org_id=org_id, destination=destination_id
+        )
 
     async def delete_destination(self, user_id: UUID, org_id: UUID, destination_id: UUID) -> bool:
         """Delete a destination."""
@@ -82,7 +94,9 @@ class DestinationService:
         )
         if not destination:
             raise ValueError(f"Destination with id {destination_id} not found")
-        return await self.destination_repo.delete(user_id=user_id, org_id=org_id, destination=destination)
+        return await self.destination_repo.delete(
+            user_id=user_id, org_id=org_id, destination=destination
+        )
 
     async def destination_exists(self, user_id: UUID, org_id: UUID, destination_id: UUID) -> bool:
         """Check if a destination exists."""

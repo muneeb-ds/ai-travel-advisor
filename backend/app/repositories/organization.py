@@ -1,6 +1,8 @@
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.organization import Organization
+
 
 class OrganizationRepository:
     """Repository class for organization data access operations."""

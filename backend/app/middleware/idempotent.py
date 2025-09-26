@@ -1,36 +1,35 @@
 import hashlib
 import json
-from typing import Any, Dict, List, Union, cast
+from typing import Any, cast
 
 from pydantic import BaseModel, ValidationError
 from starlette import status
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint, DispatchFunction
+from starlette.middleware.base import BaseHTTPMiddleware, DispatchFunction, RequestResponseEndpoint
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
-
 from starlette.types import ASGIApp
-from .kvstorage import KVStorage, get_kv_storage
 
+from .kvstorage import KVStorage, get_kv_storage
 
 IDEMPOTENT_EXPIRED: int = 10800
 IDEMPOTENT_ENABLED: bool = True
 REDIS_URL: str = ""
 TESTING: bool = False
 
-AnyDictType = Dict[str, Any]
-BodyType = Union[str, AnyDictType]
+AnyDictType = dict[str, Any]
+BodyType = str | AnyDictType
 
 
 class DataRecord(BaseModel):
     fingerprint: str
     status_code: int
-    headers: Dict[str, str]
+    headers: dict[str, str]
     media_type: str
     body: BodyType
 
 
 class AsyncIteratorWrapper:
-    def __init__(self, obj: List[Any]):
+    def __init__(self, obj: list[Any]):
         self._it = iter(obj)
 
     def __aiter__(self) -> "AsyncIteratorWrapper":
@@ -65,7 +64,14 @@ class IdempotentMiddleWare(BaseHTTPMiddleware):
     _storage_key = "idempotent"
     _header_key = "X-Idempotent-Key"
 
-    def __init__(self, app: ASGIApp, idempotent_expired: int = 10800, redis_url: str = "", testing: bool = False, dispatch: DispatchFunction = None):
+    def __init__(
+        self,
+        app: ASGIApp,
+        idempotent_expired: int = 10800,
+        redis_url: str = "",
+        testing: bool = False,
+        dispatch: DispatchFunction = None,
+    ):
         super().__init__(app, dispatch=dispatch)
         global IDEMPOTENT_EXPIRED, REDIS_URL, TESTING
         IDEMPOTENT_EXPIRED = idempotent_expired
@@ -75,7 +81,11 @@ class IdempotentMiddleWare(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         def supported_content_type() -> bool:
             if "content-type" in request.headers:
-                return request.headers["content-type"] in ["application/json", "text/plain", "text/html"]
+                return request.headers["content-type"] in [
+                    "application/json",
+                    "text/plain",
+                    "text/html",
+                ]
             return False
 
         def supported_method() -> bool:
@@ -91,22 +101,25 @@ class IdempotentMiddleWare(BaseHTTPMiddleware):
             return await call_next(request)
 
         if not self._is_valid_key(key):
-            return self._error_response(ErrorType.invalid_key, status_code=status.HTTP_400_BAD_REQUEST)
+            return self._error_response(
+                ErrorType.invalid_key, status_code=status.HTTP_400_BAD_REQUEST
+            )
 
         # Get request body and query params to generate a fingerprint
         request_data = {
             "query_params": dict(request.query_params),
-            "body": (await request.body()).decode()
+            "body": (await request.body()).decode(),
         }
-        
-        # We need to reconstruct the request body stream after reading it
-        request._stream = AsyncIteratorWrapper([json.dumps(request_data['body']).encode()])
 
+        # We need to reconstruct the request body stream after reading it
+        request._stream = AsyncIteratorWrapper([json.dumps(request_data["body"]).encode()])
 
         try:
             cached_response = await self.before_call_next(key)
         except ValueError:
-            return self._error_response(ErrorType.too_many_request, status_code=status.HTTP_429_TOO_MANY_REQUESTS)
+            return self._error_response(
+                ErrorType.too_many_request, status_code=status.HTTP_429_TOO_MANY_REQUESTS
+            )
 
         if cached_response is not None:
             return self._replay_response(request_data, cached_response)
@@ -122,7 +135,7 @@ class IdempotentMiddleWare(BaseHTTPMiddleware):
         return self._storage
 
     @classmethod
-    def _find_idempotent_key(cls, request: Request) -> Union[str, None]:
+    def _find_idempotent_key(cls, request: Request) -> str | None:
         key_finders = [lambda request: request.headers.get(cls._header_key, None)]
         for func in key_finders:
             key = func(request)
@@ -144,13 +157,13 @@ class IdempotentMiddleWare(BaseHTTPMiddleware):
 
     @staticmethod
     def _create_save_data(fingerprint: str, body: BodyType, response: Response) -> AnyDictType:
-        data = dict(
-            headers=dict(response.headers),
-            status_code=response.status_code,
-            media_type=response.media_type if response.media_type else "application/json",
-            body=body,
-            fingerprint=fingerprint,
-        )
+        data = {
+            "headers": dict(response.headers),
+            "status_code": response.status_code,
+            "media_type": response.media_type if response.media_type else "application/json",
+            "body": body,
+            "fingerprint": fingerprint,
+        }
         return data
 
     @staticmethod
@@ -166,18 +179,24 @@ class IdempotentMiddleWare(BaseHTTPMiddleware):
             # Validate response data
             record = DataRecord(**cached_response)
         except ValidationError:
-            return self._error_response(ErrorType.response_conflict, status_code=status.HTTP_409_CONFLICT)
+            return self._error_response(
+                ErrorType.response_conflict, status_code=status.HTTP_409_CONFLICT
+            )
 
         # compare fingerprint between original request body and request body
         fingerprint = self._create_fingerprint(request_data)
         if record.fingerprint != fingerprint:
-            return self._error_response(ErrorType.request_conflict, status_code=status.HTTP_409_CONFLICT)
+            return self._error_response(
+                ErrorType.request_conflict, status_code=status.HTTP_409_CONFLICT
+            )
 
         record.headers["X-Idempotent-Replayed"] = "1"
         if record.media_type == "text/html":
             return HTMLResponse(record.body, headers=record.headers, status_code=record.status_code)
         if record.media_type == "text/plain":
-            return PlainTextResponse(record.body, headers=record.headers, status_code=record.status_code)
+            return PlainTextResponse(
+                record.body, headers=record.headers, status_code=record.status_code
+            )
         return JSONResponse(record.body, headers=record.headers, status_code=record.status_code)
 
     @staticmethod
@@ -187,11 +206,11 @@ class IdempotentMiddleWare(BaseHTTPMiddleware):
             data_str = json.dumps(data, sort_keys=True)
         else:
             data_str = str(data)
-        
+
         data_bytes = data_str.encode()
         return hashlib.sha256(data_bytes).hexdigest()
 
-    async def before_call_next(self, key: str) -> Union[None, AnyDictType]:
+    async def before_call_next(self, key: str) -> None | AnyDictType:
         cached_response = await self.storage.get(key, deserialize=False)
         if cached_response is None:
             # First request with this key
@@ -202,7 +221,9 @@ class IdempotentMiddleWare(BaseHTTPMiddleware):
             raise ValueError
         return self._deserialize(cast(str, cached_response))
 
-    async def after_call_next(self, key: str, request_data: AnyDictType, response: Response) -> Response:
+    async def after_call_next(
+        self, key: str, request_data: AnyDictType, response: Response
+    ) -> Response:
         # Get response body
         resp_body = [section async for section in response.__dict__["body_iterator"]]
         # Reset body_iterator

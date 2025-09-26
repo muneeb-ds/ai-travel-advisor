@@ -18,9 +18,9 @@ router = APIRouter(prefix="/qa", tags=["agent"])
 @router.post("/plan")
 @limiter.limit("5/minute")
 async def plan_itinerary(
-    request: Request, # noqa: ARG001
-    request_data: dict, # noqa: ARG001
-    user: User = Depends(get_current_user) # noqa: ARG001
+    request: Request,  # noqa: ARG001
+    request_data: dict,  # noqa: ARG001
+    user: User = Depends(get_current_user),  # noqa: ARG001
 ):
     """
     Generate an itinerary plan (non-streaming).
@@ -44,7 +44,7 @@ async def plan_itinerary(
 @router.websocket("/stream")
 async def qa_stream(
     websocket: WebSocket,
-    user: User = Depends(get_current_user) # noqa: ARG001
+    user: User = Depends(get_current_user),  # noqa: ARG001
 ):
     """
     WebSocket endpoint for streaming itinerary planning progress and final payload.

@@ -1,6 +1,7 @@
 """
 API endpoints for user management, accessible by administrators.
 """
+
 import logging
 
 from fastapi import APIRouter, Depends, Request, status
@@ -24,7 +25,7 @@ router = APIRouter(prefix="/users", tags=["User Management"])
 )
 @limiter.limit("60/minute")
 async def create_user(
-    request: Request,
+    request: Request,  # noqa: ARG001
     user_data: UserCreateRequest,
     admin_user: User = Depends(require_admin),
     auth_service: AuthService = Depends(get_auth_service),

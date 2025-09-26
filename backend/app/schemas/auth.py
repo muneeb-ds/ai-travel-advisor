@@ -8,6 +8,7 @@ from pydantic import BaseModel, EmailStr, Field
 
 from app.models.user import UserRole
 
+
 class OrgUserCreateRequest(BaseModel):
     """Schema for user creation request."""
 
@@ -19,6 +20,7 @@ class OrgUserCreateRequest(BaseModel):
         description="Password must be at least 8 characters",
     )
     org_name: str = Field(..., description="Organization name")
+
 
 class UserCreateRequest(BaseModel):
     """Schema for user creation request."""

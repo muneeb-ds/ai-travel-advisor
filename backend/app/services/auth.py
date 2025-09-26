@@ -10,6 +10,7 @@ from fastapi import HTTPException, status
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import cache
 from app.core.security import (
     JWT_PRIVATE_KEY,
     JWT_PUBLIC_KEY,
@@ -17,7 +18,6 @@ from app.core.security import (
     verify_password,
 )
 from app.core.settings import settings
-from app.core import cache
 from app.models.user import User
 from app.repositories.organization import OrganizationRepository
 from app.repositories.refresh_token import RefreshTokenRepository
@@ -46,9 +46,7 @@ class AuthService:
     # --- Token Creation ---
     def _create_access_token(self, user: User) -> str:
         """Create a JWT access token."""
-        expire = datetime.now(UTC) + timedelta(
-            minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES
-        )
+        expire = datetime.now(UTC) + timedelta(minutes=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES)
         to_encode = {
             "sub": str(user.id),
             "exp": expire,
@@ -56,24 +54,16 @@ class AuthService:
             "role": user.role,
             "org_id": str(user.org_id),
         }
-        return jwt.encode(
-            to_encode, JWT_PRIVATE_KEY, algorithm=settings.JWT_ALGORITHM
-        )
+        return jwt.encode(to_encode, JWT_PRIVATE_KEY, algorithm=settings.JWT_ALGORITHM)
 
-    async def _create_refresh_token(
-        self, user: User, jti: str | None = None
-    ) -> str:
+    async def _create_refresh_token(self, user: User, jti: str | None = None) -> str:
         """Create a JWT refresh token and store its hash."""
         if jti is None:
             jti = str(uuid.uuid4())
 
-        expire = datetime.now(UTC) + timedelta(
-            days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS
-        )
+        expire = datetime.now(UTC) + timedelta(days=settings.JWT_REFRESH_TOKEN_EXPIRE_DAYS)
         to_encode = {"sub": str(user.id), "exp": expire, "jti": jti, "type": "refresh"}
-        token = jwt.encode(
-            to_encode, JWT_PRIVATE_KEY, algorithm=settings.JWT_ALGORITHM
-        )
+        token = jwt.encode(to_encode, JWT_PRIVATE_KEY, algorithm=settings.JWT_ALGORITHM)
 
         token_hash = hashlib.sha256(token.encode()).hexdigest()
         await self.refresh_token_repo.create_refresh_token(
@@ -156,9 +146,7 @@ class AuthService:
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
         )
         try:
-            payload = jwt.decode(
-                refresh_token, JWT_PUBLIC_KEY, algorithms=[settings.JWT_ALGORITHM]
-            )
+            payload = jwt.decode(refresh_token, JWT_PUBLIC_KEY, algorithms=[settings.JWT_ALGORITHM])
             user_id = payload.get("sub")
             jti = payload.get("jti")
             token_type = payload.get("type")
@@ -192,9 +180,7 @@ class AuthService:
     async def logout(self, refresh_token: str) -> None:
         """Revoke a refresh token to log out a user."""
         try:
-            payload = jwt.decode(
-                refresh_token, JWT_PUBLIC_KEY, algorithms=[settings.JWT_ALGORITHM]
-            )
+            payload = jwt.decode(refresh_token, JWT_PUBLIC_KEY, algorithms=[settings.JWT_ALGORITHM])
             jti = payload.get("jti")
             if jti:
                 await self.refresh_token_repo.revoke_refresh_token(jti)
@@ -202,9 +188,7 @@ class AuthService:
             # Token is invalid anyway, so we can ignore it
             pass
 
-    async def create_user(
-        self, user_data: UserCreateRequest, admin_user: User
-    ) -> UserResponse:
+    async def create_user(self, user_data: UserCreateRequest, admin_user: User) -> UserResponse:
         """Create a new user within the admin's organization."""
         if await self.user_repo.get_user_by_email(user_data.email):
             raise HTTPException(
@@ -234,9 +218,12 @@ class AuthService:
         failed_login_attempts = await self.cache.client.get(cache_key)
         if int(failed_login_attempts) >= settings.MAX_FAILED_LOGIN_ATTEMPTS:
             locked_until_cache_key = f"locked_until:{user.id}"
-            await self.cache.client.set(locked_until_cache_key, datetime.isoformat(datetime.now(UTC) + timedelta(
-                minutes=settings.LOCKOUT_DURATION_MINUTES
-            )))
+            await self.cache.client.set(
+                locked_until_cache_key,
+                datetime.isoformat(
+                    datetime.now(UTC) + timedelta(minutes=settings.LOCKOUT_DURATION_MINUTES)
+                ),
+            )
 
     async def reset_failed_login_attempts(self, user: User) -> None:
         """Reset failed login attempts and unlock account."""

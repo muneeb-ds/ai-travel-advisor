@@ -22,10 +22,6 @@ if config.config_file_name is not None:
 # add your model's MetaData object here
 # for 'autogenerate' support
 from app.models import *
-# from app.shared.models.user import User, UserToken
-# from app.shared.models.assistant import Assistant
-# from app.shared.models.phone_numbers import PhoneNumbers
-# from app.shared.models.call_logs import CallLogs
 from app.core.database import Base
 
 target_metadata = Base.metadata
