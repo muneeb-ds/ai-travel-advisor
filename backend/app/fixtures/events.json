@@ -1,0 +1,37 @@
+[
+  {
+    "name": "Kinkaku-ji",
+    "location": "Kyoto",
+    "opening_hours": "10:30 AM - 5:30 PM",
+    "kid_friendly": true,
+    "is_indoor": false
+  },
+  {
+    "name": "Todai-ji",
+    "location": "Nara",
+    "opening_hours": "10:00 AM - 5:00 PM",
+    "kid_friendly": true,
+    "is_indoor": true
+  },
+  {
+    "name": "Shibuya Crossing",
+    "location": "Shibuya",
+    "opening_hours": "7:00 PM - 1:00 AM",
+    "kid_friendly": false,
+    "is_indoor": false
+  },
+  {
+    "name": "Osaka Castle",
+    "location": "Osaka",
+    "opening_hours": "9:00 AM - 6:00 PM",
+    "kid_friendly": true,
+    "is_indoor": true
+  },
+  {
+    "name": "Shibuya Hikarie",
+    "location": "Osaka",
+    "opening_hours": "9:30 AM - 10:45 PM",
+    "kid_friendly": true,
+    "is_indoor": true
+  }
+]

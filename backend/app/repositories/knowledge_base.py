@@ -35,6 +35,23 @@ class KnowledgeBaseRepository:
         result = await self.db.execute(query)
         return result.unique().scalars().all()
 
+    async def get_all_visible(
+        self, user_id: UUID, org_id: UUID, skip: int = 0, limit: int = 100
+    ) -> list[KnowledgeBase]:
+        """Get all knowledge entries with their destinations where user is creator or scope is org_public."""
+        query = (
+            select(KnowledgeBase)
+            .filter(
+                KnowledgeBase.org_id == org_id,
+                or_(KnowledgeBase.user_id == user_id, KnowledgeBase.scope == "org_public"),
+            )
+            .filter(KnowledgeBase.is_active)
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
+        return result.unique().scalars().all()
+
     async def get_by_destination_id(
         self, destination_id: UUID, user_id: UUID, org_id: UUID, skip: int = 0, limit: int = 100
     ) -> list[KnowledgeBase]:

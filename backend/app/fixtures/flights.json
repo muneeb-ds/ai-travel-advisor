@@ -1,0 +1,32 @@
+[
+  {
+    "airline": "American Airlines",
+    "flight_number": "AA101",
+    "departure_airport": "JFK",
+    "arrival_airport": "KIX",
+    "departure_time": "08:00",
+    "arrival_time": "11:00",
+    "price": 350.50,
+    "co2_emissions_kg": 250.75
+  },
+  {
+    "airline": "Delta",
+    "flight_number": "DL202",
+    "departure_airport": "JFK",
+    "arrival_airport": "KIX",
+    "departure_time": "09:30",
+    "arrival_time": "12:30",
+    "price": 400.00,
+    "co2_emissions_kg": 260.00
+  },
+  {
+    "airline": "United Airlines",
+    "flight_number": "UA303",
+    "departure_airport": "LAX",
+    "arrival_airport": "ITM",
+    "departure_time": "14:00",
+    "arrival_time": "22:00",
+    "price": 380.25,
+    "co2_emissions_kg": 255.50
+  }
+]

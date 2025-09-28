@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -8,33 +10,34 @@ from fastapi import (
     status,
 )
 
-from app.api.dependencies import get_current_user
+from app.api.dependencies import get_agent_service, get_current_user
 from app.core.limiter import limiter
 from app.models.user import User
+from app.schemas.agent import AgentRequest, AgentResponse
+from app.services.agent import AgentService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/qa", tags=["agent"])
 
 
-@router.post("/plan")
+@router.post("/plan", response_model=AgentResponse)
 @limiter.limit("5/minute")
 async def plan_itinerary(
     request: Request,  # noqa: ARG001
-    request_data: dict,  # noqa: ARG001
+    agent_request: AgentRequest,
     user: User = Depends(get_current_user),  # noqa: ARG001
+    agent_service: AgentService = Depends(get_agent_service),
 ):
     """
-    Generate an itinerary plan (non-streaming).
-    Returns: itinerary JSON, citations, and tool log.
-
-    Supports idempotency via the Idempotency-Key header. If the same key is used
-    within the TTL window, the original response will be returned.
+    Generate an itinerary plan using LangGraph agent (non-streaming).
+    Returns: AI response, citations, and tool calls log.
     """
-    # Placeholder: Replace with actual planning logic
     try:
-        # Example response structure
-        response = {"itinerary": {"days": []}, "citations": [], "tool_log": []}
+        response = await agent_service.plan_itinerary(user, agent_request)
         return response
     except Exception as e:
+        logger.exception(e)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate itinerary: {str(e)}",

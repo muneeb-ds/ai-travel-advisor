@@ -9,6 +9,7 @@ from app.core.security import JWT_PUBLIC_KEY, oauth2_scheme
 from app.core.settings import settings
 from app.models.user import User, UserRole
 from app.repositories.user import UserRepository
+from app.services.agent import AgentService
 from app.services.auth import AuthService
 from app.services.destination import DestinationService
 from app.services.knowledge import KnowledgeService
@@ -118,3 +119,7 @@ def get_auth_service(db: AsyncSession = Depends(get_db)) -> AuthService:
 # Dependency for ops service
 async def get_ops_service(db: AsyncSession = Depends(get_db)) -> OpsService:
     return OpsService(db)
+
+
+async def get_agent_service(db: AsyncSession = Depends(get_db)) -> AgentService:
+    return AgentService(db)
