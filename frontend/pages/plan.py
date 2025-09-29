@@ -259,32 +259,32 @@ def handle_user_message(user_input):
             st.write("• Planning optimal routes and activities")
             st.write("• Generating detailed recommendations")
             
-            # Show a progress bar
-            progress_bar = st.progress(0)
-            status_text = st.empty()
+            # # Show a progress bar
+            # progress_bar = st.progress(0)
+            # status_text = st.empty()
             
-            import time
-            import threading
+            # import time
+            # import threading
             
-            # Simulate progress updates (since we can't get real progress from backend)
-            def update_progress():
-                for i in range(101):
-                    progress_bar.progress(i)
-                    if i < 20:
-                        status_text.text("🔍 Searching knowledge base...")
-                    elif i < 40:
-                        status_text.text("🧠 AI is analyzing your request...")
-                    elif i < 60:
-                        status_text.text("🗺️ Planning routes and activities...")
-                    elif i < 80:
-                        status_text.text("📋 Generating detailed itinerary...")
-                    else:
-                        status_text.text("✨ Finalizing recommendations...")
-                    time.sleep(0.1)  # Very fast updates for smooth animation
+            # # Simulate progress updates (since we can't get real progress from backend)
+            # def update_progress():
+            #     for i in range(101):
+            #         progress_bar.progress(i)
+            #         if i < 20:
+            #             status_text.text("🔍 Searching knowledge base...")
+            #         elif i < 40:
+            #             status_text.text("🧠 AI is analyzing your request...")
+            #         elif i < 60:
+            #             status_text.text("🗺️ Planning routes and activities...")
+            #         elif i < 80:
+            #             status_text.text("📋 Generating detailed itinerary...")
+            #         else:
+            #             status_text.text("✨ Finalizing recommendations...")
+            #         time.sleep(0.1)  # Very fast updates for smooth animation
             
-            # Start progress animation in background
-            progress_thread = threading.Thread(target=update_progress, daemon=True)
-            progress_thread.start()
+            # # Start progress animation in background
+            # progress_thread = threading.Thread(target=update_progress, daemon=True)
+            # progress_thread.start()
         
         # Make the actual API call
         api_client = get_api_client()
@@ -306,7 +306,8 @@ def handle_user_message(user_input):
                 'citations': response.get('citations', []),
                 'tools_used': response.get('tools_used', []),
                 'decisions': response.get('decisions', []),
-                'thread_id': response.get('thread_id', st.session_state.thread_id)
+                'thread_id': response.get('thread_id', st.session_state.thread_id),
+                'constraints': response.get('constraints', {})
             }
         }
         
@@ -381,18 +382,17 @@ def render_planning_sidebar():
     
     # Thread ID info with better styling
     with st.expander("🧵 Session Info", expanded=False):
-        st.markdown(f"""
-        <div style="background-color: #f1f5f9; padding: 0.75rem; border-radius: 0.5rem; margin: 0.5rem 0; font-family: monospace; color: #1e40af !important;">
-            Thread ID: {st.session_state.thread_id}
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown("<div style='color: white !important; font-size: 0.9rem;'>This ID links your conversation for follow-up questions</div>", unsafe_allow_html=True)
-    
+        st.write(f"**Thread ID:** {st.session_state.thread_id}")
+        st.write("This ID links your conversation for follow-up questions")
+
     # Tools Used
     render_tools_used_section(data.get('tools_used', []))
     
     # Decisions Made
     render_decisions_section(data.get('decisions', []))
+
+    # Constraints
+    render_constraints_section(data.get('constraints', {}))
     
     # Citations
     render_citations_section(data.get('citations', []))
@@ -406,39 +406,39 @@ def render_tools_used_section(tools_used):
     with st.expander("🛠️ Tools Used", expanded=True):
         if tools_used:
             for tool in tools_used:
-                st.markdown(f"""
-                <div style="background-color: #1f2937; border: 1px solid #374151; border-radius: 0.5rem; padding: 0.75rem; margin: 0.5rem 0;">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <strong style="color: #60a5fa;">{tool['name']}</strong>
-                        <span style="background-color: #3b82f6; color: white; padding: 0.25rem 0.5rem; border-radius: 1rem; font-size: 0.8rem;">{tool['count']}x</span>
-                    </div>
-                """, unsafe_allow_html=True)
-                
-                # Show timing if available
-                if tool.get('total_ms'):
-                    time_seconds = tool['total_ms'] / 1000
-                    st.markdown(f"<div style='color: #9ca3af; font-size: 0.9rem; margin-top: 0.25rem;'>⏱️ {time_seconds:.1f}s total</div>", unsafe_allow_html=True)
-                
-                st.markdown("</div>", unsafe_allow_html=True)
+                st.write(f"**{tool['name']}:** {tool['count']}x")
+                # # Show timing if available
+                # if tool.get('total_ms'):
+                #     time_seconds = tool['total_ms'] / 1000
+                #     st.write(f"**{time_seconds:.1f}s total**")
         else:
-            st.markdown("""
-            <div style="background-color: #eff6ff; border: 1px solid #bfdbfe; border-radius: 0.5rem; padding: 1rem; color: #1e40af;">
-                <div style="text-align: center;">
-                    <div style="font-size: 2rem; margin-bottom: 0.5rem;">🛠️</div>
-                    <div>No tools used yet. Ask a planning question to see tools in action!</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.info("No tools used yet. Ask a planning question to see tools in action!")
 
 
 def render_decisions_section(decisions):
     """Render the decisions made section."""
-    with st.expander("🎯 Decisions & Constraints", expanded=True):
+    with st.expander("🎯 Decisions", expanded=True):
         if decisions:
             for i, decision in enumerate(decisions, 1):
                 st.write(f"**{i}.** {decision}")
         else:
             st.info("No decisions recorded yet. The AI will track its reasoning as you chat.")
+
+
+def render_constraints_section(constraints):
+    """Render the constraints section."""
+    with st.expander("🔒 Constraints", expanded=True):
+        if constraints:
+            st.write(f"**{constraints}**")
+            # for constraint in constraints:
+            st.write(f"**Budget:** {constraints['budget_usd']}")
+            st.write(f"**Start Date:** {constraints['dates']['start']}")
+            st.write(f"**End Date:** {constraints['dates']['end']}")
+            st.write(f"**Airports:** {constraints['airports']}")
+            for preference in constraints['preferences']:
+                st.write(f"**{preference}:** {constraints['preferences'][preference]}")
+        else:
+            st.info("No constraints recorded yet. The AI will track its reasoning as you chat.")
 
 
 def render_citations_section(citations):
