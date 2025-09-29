@@ -2,6 +2,10 @@
 
 A sophisticated full-stack AI-powered travel planning application that combines personal knowledge management with intelligent itinerary generation. The system uses LangGraph agents to orchestrate multiple tools for comprehensive travel planning, including flights, lodging, events, weather, and personalized recommendations.
 
+<img width="2137" height="1816" alt="mermaid-diagram-2025-09-30-041515" src="https://github.com/user-attachments/assets/446673b7-78f5-444b-b69a-08493bbf2145" />
+
+
+
 ## 🚀 Quick Start
 
 ### Prerequisites
