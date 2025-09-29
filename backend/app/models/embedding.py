@@ -5,7 +5,7 @@ Embedding model with pgvector support for RAG knowledge base.
 import uuid
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Column, ForeignKey, Integer, Text, func
+from sqlalchemy import Column, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import TIMESTAMP, UUID
 from sqlalchemy.orm import relationship
 
@@ -27,6 +27,7 @@ class Embedding(Base):
         index=True,
     )
 
+    title = Column(String(500), nullable=False)
     # Chunk information
     chunk_idx = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)

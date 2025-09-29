@@ -53,6 +53,7 @@ async def seed_data():
             {"name": "Paris", "description": "The city of lights."},
             {"name": "Tokyo", "description": "A vibrant metropolis."},
             {"name": "New York", "description": "The city that never sleeps."},
+            {"name": "Japan", "description": "The country of the rising sun."},
         ]
 
         for dest_data in destinations_to_create:
@@ -77,6 +78,7 @@ async def seed_data():
                 {"title": "Louvre Museum", "scope": KnowledgeScope.ORG_PUBLIC.value},
                 {"title": "Notre-Dame Cathedral", "scope": KnowledgeScope.ORG_PUBLIC.value},
                 {"title": "Best croissant spots", "scope": KnowledgeScope.PRIVATE.value},
+                {"title": "Best places to visit in Kyoto", "scope": KnowledgeScope.ORG_PUBLIC.value},
             ]
             for item in knowledge_items:
                 kb_item = await session.execute(select(KnowledgeBase).where(KnowledgeBase.title == item["title"], KnowledgeBase.destination_id == paris.id))

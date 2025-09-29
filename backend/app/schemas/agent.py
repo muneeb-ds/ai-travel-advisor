@@ -1,6 +1,5 @@
 from collections.abc import Sequence
 from datetime import date
-from operator import add
 from typing import Annotated, Any
 
 from langchain_core.messages import AnyMessage
@@ -66,7 +65,7 @@ class Citation(BaseModel):
 class ToolUsage(BaseModel):
     name: str
     count: int
-    total_ms: int
+    # total_ms: int
 
 
 class SynthesisResult(BaseModel):
@@ -93,17 +92,16 @@ class AgentState(TypedDict):
 
     messages: Annotated[Sequence[AnyMessage], add_messages]
     constraints: Constraints
-    plan: Annotated[list[Plan], add] = []
+    plan: list[Plan] = []
     working_set: WorkingSet
-    citations: Annotated[list[Citation], add]
-    tool_calls: Annotated[list[ToolCall], add]
-    violations: Annotated[list[Violation], add]
+    citations: list[Citation] = []
+    tool_calls: list[ToolCall] = []
+    violations: list[Violation] = []
     budget_counters: dict[str, Any]
     answer_markdown: str | None
     itinerary: StructuredItinerary | None
-    decisions: Annotated[list[str], add]
+    decisions: list[str] = []
     done: bool
-    is_refinement: bool
 
 
 class AgentRequest(BaseModel):
@@ -121,3 +119,4 @@ class AgentResponse(BaseModel):
     citations: list[Citation] = []
     tools_used: list[ToolUsage] = []
     decisions: list[str] = []
+    constraints: Constraints = Constraints()

@@ -187,6 +187,7 @@ class KnowledgeService:
         #     raise BadRequestError("File must be a PDF, Markdown, or TXT file")
 
         try:
+
             with tempfile.NamedTemporaryFile(delete=False, suffix=file.filename) as tmp_file:
                 tmp_file.write(await file.read())
                 tmp_file_path = tmp_file.name
@@ -207,7 +208,7 @@ class KnowledgeService:
                 chunk.metadata["knowledge_item_id"] = str(knowledge_id)
                 chunk.metadata["chunk_idx"] = i
                 chunk.metadata["created_at"] = datetime.now(UTC)
-
+                chunk.metadata["title"] = file.filename
             await pgvector_db_store.aadd_documents(chunks)
             return len(chunks)
 

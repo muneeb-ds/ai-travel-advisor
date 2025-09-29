@@ -1,7 +1,7 @@
 import json
 import logging
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
@@ -32,6 +32,7 @@ from app.schemas.tools import (
     DailyWeather,
     EventSearchOutput,
     FlightSearchOutput,
+    KnowledgeRetrievalOutput,
     LodgingSearchOutput,
     WeatherOutput,
 )
@@ -67,12 +68,14 @@ CONSTRAINT_EXTRACTION_PROMPT = """
 Current Date: {current_date}
 
 Extract all constraints from the user's query. For preferences, extract the preferences and their values. For example, if the user says "I want to go to the beach", the preference is "beach" and the value is "true".
+For dates, extract the start and end dates based on the current date as well as user mentioned days i.e. if the user says next month for 5 days, the start date is the first day of the next month and the end date is the 5th day of the next month.
 
 user's query: {query}
 """
 
 PLAN_PROMPT = """
-Given the user's query and constraints, generate a detailed, step-by-step travel itinerary plan.
+Given the user's query and constraints, generate a detailed, step-by-step travel itinerary plan. If there are no constraints, generate a plan that is as detailed as possible.
+If the user query doesnt require a plan then return an empty plan.
 
 **Requirements:**
 
@@ -129,16 +132,16 @@ When generating the markdown itinerary, be sure to include citations for any inf
 """
 
 
-def should_repair(state: AgentState) -> Literal["repair_node", "router"]:
+def should_repair(state: AgentState) -> Literal["repair_node", "synthesizer_node"]:
     if state.get("violations"):
         return "repair_node"
-    return "router"
+    return "synthesizer_node"
 
 
 def is_refinement_check(
     state: AgentState,
 ) -> Literal["refinement_node", "constraint_extraction_node"]:
-    if state.get("is_refinement"):
+    if state.get("done"):
         return "refinement_node"
     return "constraint_extraction_node"
 
@@ -164,15 +167,15 @@ class AgentService:
         """Extract constraints from the user's request."""
         llm = ChatOpenAI(model="gpt-4o-mini", api_key=settings.OPENAI_API_KEY)
 
-        # HumanMessage(content=CONSTRAINT_EXTRACTION_PROMPT.format(query=AgentState.messages[-1].content))
+        constraint_extraction_message = HumanMessage(content=CONSTRAINT_EXTRACTION_PROMPT.format(current_date=datetime.now(UTC).strftime("%Y-%m-%d"), query=state["messages"][-1].content))
 
-        constraints = await llm.with_structured_output(Constraints).ainvoke(state["messages"])
+        constraints = await llm.with_structured_output(Constraints).ainvoke(state["messages"] + [constraint_extraction_message])
         state["constraints"] = constraints
         return state
 
     async def refinement_node(self, state: AgentState) -> AgentState:
         """If this is a refinement, update constraints based on the new query."""
-        if not state.get("is_refinement"):
+        if not state.get("done"):
             return state
 
         llm = ChatOpenAI(model="gpt-4o-mini", api_key=settings.OPENAI_API_KEY)
@@ -198,7 +201,7 @@ class AgentService:
         Return the full, updated set of constraints.
         """
         prompt = REFINEMENT_CONSTRAINT_EXTRACTION_PROMPT.format(
-            current_date=datetime.now().strftime("%Y-%m-%d"),
+            current_date=datetime.now(UTC).strftime("%Y-%m-%d"),
             existing_constraints=state.get("constraints"),
             query=user_query,
         )
@@ -314,7 +317,9 @@ class AgentService:
         response_message = AIMessage(
             content=state.get("answer_markdown", "Here is your travel plan.")
         )
-        return {"messages": [response_message]}
+        state["messages"] = [response_message]
+        state["done"] = True
+        return state
 
     async def repair_node(self, state: AgentState) -> AgentState:
         """Repair the plan based on violations."""
@@ -360,7 +365,23 @@ class AgentService:
         """Verify the plan against constraints and add violations."""
         state["violations"] = []
         constraints = state.get("constraints")
-        tool_messages = [msg for msg in state["messages"] if isinstance(msg, ToolMessage)]
+        
+        # Get only the most recent batch of tool messages (consecutive ToolMessages at the end)
+        messages = state["messages"]
+        recent_tool_messages = []
+        
+        # Iterate backwards through messages to find the most recent consecutive tool messages
+        for msg in reversed(messages):
+            if isinstance(msg, ToolMessage):
+                recent_tool_messages.insert(0, msg)  # Insert at beginning to maintain order
+            else:
+                break  # Stop when we hit a non-tool message
+        
+        tool_messages = recent_tool_messages
+        # logger.critical(f"Messages: {messages}")
+        logger.critical(f"Recent Tool messages: {len(tool_messages)}")
+        logger.critical(f"Total Tool messages: {len([message for message in messages if isinstance(message, ToolMessage)])}")
+
 
         parsed_tool_outputs = {}
         model_map = {
@@ -467,27 +488,14 @@ class AgentService:
         Determines the next steps to execute from the plan and adds them as tool calls
         to a new AIMessage.
         """
-        completed_step_ids = self._get_completed_step_ids(state)
-        plan = state.get("plan", [])
+        model = ChatOpenAI(model="gpt-4o-mini", api_key=settings.OPENAI_API_KEY)
 
-        runnable_steps = []
-        for step in plan:
-            if step.get("id") not in completed_step_ids:
-                if not step.get("depends_on") or set(step.get("depends_on")).issubset(
-                    completed_step_ids
-                ):
-                    runnable_steps.append(step)
-
-        if not runnable_steps:
-            return state
-
-        tool_calls = [
-            LangchainToolCall(name=step.get("tool"), args=step.get("args"), id=step.get("id"))
-            for step in runnable_steps
-        ]
-
-        ai_message = AIMessage(content="", tool_calls=tool_calls)
-        return {"messages": [ai_message]}
+        response = await (
+            model
+            .bind_tools(self.tools).ainvoke(state["messages"])
+        )
+        state["messages"] = [response]
+        return state
 
     async def add_nodes_and_edges(self):
         """Add nodes to the graph."""
@@ -521,7 +529,7 @@ class AgentService:
             tools_condition,
             {
                 "tools": "tool_executor",
-                "__end__": "synthesizer_node",
+                "__end__": "responder_node",
             },
         )
         self.graph.add_edge("tool_executor", "verifier_critic_node")
@@ -530,7 +538,7 @@ class AgentService:
             should_repair,
             {
                 "repair_node": "repair_node",
-                "router": "router",
+                "synthesizer_node": "synthesizer_node",
             },
         )
         self.graph.add_edge("repair_node", "router")
@@ -560,14 +568,19 @@ class AgentService:
             if agent_request.thread_id:
                 # Check if a state already exists for this thread
                 existing_state = await compiled_graph.aget_state(config)
-                if existing_state and existing_state.values.get("itinerary"):
+                if existing_state and existing_state.values.get("done"):
                     is_refinement = True
 
             if is_refinement:
+                query = f"{existing_state.values.get('working_set').query}\n{agent_request.query}"
+                working_set = WorkingSet(
+                    knowledge_item_ids=knowledge_item_ids, query=query
+                )
                 # For a refinement, we just pass the new message and the refinement flag
                 input_data = {
-                    "messages": [HumanMessage(content=agent_request.query)],
-                    "is_refinement": True,
+                    "messages": [HumanMessage(content=query)],
+                    "done": True,
+                    "working_set": working_set,
                 }
             else:
                 # For a new plan, we set up the initial state
@@ -588,8 +601,7 @@ class AgentService:
                     "answer_markdown": None,
                     "itinerary": None,
                     "decisions": [],
-                    "done": False,
-                    "is_refinement": False,
+                    "done": False
                 }
 
             # Stream intermediate steps
@@ -603,25 +615,42 @@ class AgentService:
             final_state_snapshot = await compiled_graph.aget_state(config)
             final_state = final_state_snapshot.values if final_state_snapshot else {}
 
-            tool_calls = final_state.get("tool_calls", [])
+            # Extract tool usage from ToolMessage instances in final state messages
             tool_usage = []
-            if tool_calls:
+            citations = []
+            if "messages" in final_state:
                 tool_counts = {}
-                for tc in tool_calls:
-                    if tc.name not in tool_counts:
-                        tool_counts[tc.name] = {"count": 0, "total_ms": 0}
-                    tool_counts[tc.name]["count"] += 1
-                    tool_counts[tc.name]["total_ms"] += tc.time_ms
+                for message in final_state["messages"]:
+                    if isinstance(message, ToolMessage):
+                        tool_name = message.name
+                        
+                        # Count tool usage
+                        if tool_name not in tool_counts:
+                            tool_counts[tool_name] = {"count": 0, "total_ms": 0}
+                        tool_counts[tool_name]["count"] += 1
+                        # # Note: ToolMessage doesn't have timing info, so we'll use 0 for now
+                        # tool_counts[tool_name]["total_ms"] += 0
+                        
+                        # Extract citations from knowledge_retrieval tool messages
+                        if tool_name == "knowledge_retrieval":
+                            try:
+                                knowledge_output = KnowledgeRetrievalOutput.model_validate_json(message.content)
+                                citations.extend(knowledge_output.citations)
+                            except Exception as e:
+                                logger.warning(f"Could not parse knowledge_retrieval output for citations: {e}")
 
                 tool_usage = [
-                    ToolUsage(name=name, count=data["count"], total_ms=data["total_ms"])
+                    ToolUsage(name=name, count=data["count"])
                     for name, data in tool_counts.items()
                 ]
+
+            print(final_state.get("constraints"))
 
             return AgentResponse(
                 answer_markdown=final_state.get("answer_markdown", ""),
                 itinerary=final_state.get("itinerary") or StructuredItinerary(days=[]),
-                citations=final_state.get("citations", []),
+                citations=citations,
                 tools_used=tool_usage,
                 decisions=final_state.get("decisions", []),
+                constraints=final_state.get("constraints", Constraints()),
             )

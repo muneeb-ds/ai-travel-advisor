@@ -18,6 +18,6 @@ async def get_embedding_pgvector_db_store() -> PGVectorStore:
         id_column="id",
         content_column="content",
         embedding_column="embedding",
-        metadata_columns=["knowledge_item_id", "chunk_idx", "created_at"],
+        metadata_columns=["knowledge_item_id", "chunk_idx", "created_at", "title"],
     )
     return pgvector_db_store

@@ -2,7 +2,7 @@
   {
     "name": "The Grand Hyatt",
     "neighborhood": "Central Kyoto",
-    "price_per_night": 250.00,
+    "price_per_night": 50.00,
     "cancellation_policy": "Free cancellation up to 48 hours before check-in.",
     "distance_to_pois": {
       "Kinkaku-ji": "10 min walk",
@@ -12,7 +12,7 @@
   {
     "name": "The Standard, High Line",
     "neighborhood": "Nara",
-    "price_per_night": 400.00,
+    "price_per_night": 40.00,
     "cancellation_policy": "Non-refundable.",
     "distance_to_pois": {
       "Todai-ji": "1 min walk",
@@ -22,7 +22,7 @@
   {
     "name": "Brooklyn Bridge Hotel",
     "neighborhood": "Shibuya",
-    "price_per_night": 300.00,
+    "price_per_night": 60.00,
     "cancellation_policy": "Free cancellation up to 72 hours before check-in.",
     "distance_to_pois": {
       "Shibuya Crossing": "2 min walk",

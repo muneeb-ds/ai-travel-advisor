@@ -34,6 +34,7 @@ COPY ./migrations /app/migrations
 COPY ./pyproject.toml ./uv.lock ./alembic.ini /app/
 COPY ./scripts /app/scripts
 COPY ./certs /app/certs
+COPY ./kb_docs /app/kb_docs
 
 COPY ./app /app/app
 # Sync the project
