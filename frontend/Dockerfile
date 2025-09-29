@@ -1,28 +1,43 @@
 FROM python:3.11-slim
 
-# Set working directory
-WORKDIR /app
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements first for better caching
-COPY ../pyproject.toml /app/
-COPY ../uv.lock /app/ 2>/dev/null || true
+WORKDIR /frontend
 
 # Install uv
-RUN pip install uv
+# Ref: https://docs.astral.sh/uv/guides/integration/docker/#installing-uv
+COPY --from=ghcr.io/astral-sh/uv:0.4.15 /uv /bin/uv
+
+# Place executables in the environment at the front of the path
+# Ref: https://docs.astral.sh/uv/guides/integration/docker/#using-the-environment
+ENV PATH="/frontend/.venv/bin:$PATH"
+
+# Compile bytecode
+# Ref: https://docs.astral.sh/uv/guides/integration/docker/#compiling-bytecode
+ENV UV_COMPILE_BYTECODE=1
+
+# uv Cache
+# Ref: https://docs.astral.sh/uv/guides/integration/docker/#caching
+ENV UV_LINK_MODE=copy
 
 # Install dependencies
-RUN uv sync --frozen
+# Ref: https://docs.astral.sh/uv/guides/integration/docker/#intermediate-layers
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=uv.lock,target=uv.lock \
+    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+    uv sync --frozen --no-install-project
 
-# Copy frontend code
-COPY . /app/
+ENV PYTHONPATH=/frontend
 
-# Expose port
-EXPOSE 8501
+COPY app.py /frontend/app.py
+COPY pages /frontend/pages
+COPY utils /frontend/utils
+COPY uv.lock /frontend/uv.lock
+COPY pyproject.toml /frontend/pyproject.toml
+# Sync the project
+# Ref: https://docs.astral.sh/uv/guides/integration/docker/#intermediate-layers
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync
 
-# Command to run the application
-CMD ["uv", "run", "streamlit", "run", "main.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD [""]

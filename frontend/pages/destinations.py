@@ -1,184 +1,223 @@
 """
-Destinations management page for the Travel Advisor app.
+Destinations management page with CRUD operations.
 """
+
 import streamlit as st
 from utils.api_client import get_api_client
+from datetime import datetime
 
 
-def show():
-    """Display the destinations management page."""
-    st.header("🏠 Destination Management")
-    st.markdown("Manage your travel destinations here. Add new places you want to visit or have visited.")
+def render_destinations_page():
+    """Render the destinations management page."""
+    st.markdown('<div class="main-header">🗺️ Destinations</div>', unsafe_allow_html=True)
+    st.write("Manage your travel destinations. Create, edit, and organize places you want to visit.")
     
-    api_client = get_api_client()
-    
-    # Add new destination section
-    st.subheader("➕ Add New Destination")
-    
-    with st.form("add_destination_form"):
-        new_destination_name = st.text_input(
-            "Destination Name",
-            placeholder="e.g., Paris, Tokyo, New York",
-            help="Enter the name of a city or destination"
-        )
-        
-        submitted = st.form_submit_button("Add Destination", type="primary")
-        
-        if submitted and new_destination_name:
-            result = api_client.create_destination(new_destination_name.strip())
-            if result and "id" in result:
-                st.success(f"✅ Added '{new_destination_name}' successfully!")
-                st.rerun()
-            elif "error" in result:
-                st.error(f"❌ Error: {result['error']}")
-        elif submitted and not new_destination_name:
-            st.error("❌ Please enter a destination name")
+    # Create new destination section
+    render_create_destination_form()
     
     st.markdown("---")
     
-    # Display existing destinations
+    # List existing destinations
+    render_destinations_list()
+
+
+def render_create_destination_form():
+    """Render the form to create a new destination."""
+    with st.expander("➕ Add New Destination", expanded=False):
+        st.write("Create a new destination to organize your travel knowledge and plans.")
+        
+        with st.form("create_destination_form", clear_on_submit=True):
+            name = st.text_input(
+                "Destination Name",
+                placeholder="e.g., Paris, Tokyo, New York",
+                help="Enter the name of the destination you want to add"
+            )
+            
+            col1, col2 = st.columns([1, 3])
+            with col1:
+                submit = st.form_submit_button("✨ Create Destination", use_container_width=True)
+            
+            if submit:
+                if not name.strip():
+                    st.error("⚠️ Please enter a destination name.")
+                    return
+                
+                try:
+                    with st.spinner("🌍 Creating destination..."):
+                        api_client = get_api_client()
+                        destination = api_client.create_destination(name.strip())
+                        
+                        st.success(f"✅ Successfully created destination: **{destination['name']}**")
+                        st.rerun()
+                        
+                except Exception as e:
+                    st.error(f"❌ Failed to create destination: {str(e)}")
+
+
+def render_destinations_list():
+    """Render the list of existing destinations."""
     st.subheader("📍 Your Destinations")
     
-    destinations = api_client.get_destinations()
-    
-    if not destinations or "error" in destinations:
-        st.info("No destinations found. Add your first destination above!")
-        return
-    
-    # Search and filter
-    search_term = st.text_input(
-        "🔍 Search destinations",
-        placeholder="Search by name...",
-        key="destination_search"
-    )
-    
-    # Filter destinations based on search
-    if search_term:
-        filtered_destinations = [
-            dest for dest in destinations 
-            if search_term.lower() in dest.get("name", "").lower()
-        ]
-    else:
-        filtered_destinations = destinations
-    
-    # Display destinations in a grid
-    if filtered_destinations:
-        # Create columns for responsive layout
-        col1, col2 = st.columns(2)
+    try:
+        with st.spinner("🔄 Loading destinations..."):
+            api_client = get_api_client()
+            destinations = api_client.get_destinations()
         
-        for idx, destination in enumerate(filtered_destinations):
-            with col1 if idx % 2 == 0 else col2:
-                with st.container():
-                    st.markdown(f"""
-                    <div class="destination-card">
-                        <h4>📍 {destination.get('name', 'Unknown')}</h4>
-                        <p><small>Added: {destination.get('created_at', '')[:10]}</small></p>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                    # Action buttons
-                    btn_col1, btn_col2, btn_col3 = st.columns(3)
-                    
-                    with btn_col1:
-                        if st.button(
-                            "📝 Edit", 
-                            key=f"edit_{destination['id']}",
-                            help="Edit destination name"
-                        ):
-                            st.session_state[f"editing_{destination['id']}"] = True
-                    
-                    with btn_col2:
-                        if st.button(
-                            "📚 Knowledge", 
-                            key=f"knowledge_{destination['id']}",
-                            help="View knowledge entries"
-                        ):
-                            st.session_state.selected_destination = destination['id']
-                            st.switch_page("pages/knowledge_base.py")
-                    
-                    with btn_col3:
-                        if st.button(
-                            "🗑️ Delete", 
-                            key=f"delete_{destination['id']}",
-                            help="Delete destination",
-                            type="secondary"
-                        ):
-                            st.session_state[f"confirm_delete_{destination['id']}"] = True
-                    
-                    # Edit form (appears when edit button is clicked)
-                    if st.session_state.get(f"editing_{destination['id']}", False):
-                        with st.form(f"edit_form_{destination['id']}"):
-                            new_name = st.text_input(
-                                "New name",
-                                value=destination.get('name', ''),
-                                key=f"new_name_{destination['id']}"
-                            )
-                            
-                            col_save, col_cancel = st.columns(2)
-                            with col_save:
-                                if st.form_submit_button("💾 Save"):
-                                    if new_name.strip():
-                                        result = api_client.update_destination(
-                                            destination['id'], 
-                                            new_name.strip()
-                                        )
-                                        if result and "id" in result:
-                                            st.success("✅ Updated successfully!")
-                                            st.session_state[f"editing_{destination['id']}"] = False
-                                            st.rerun()
-                                        else:
-                                            st.error("❌ Failed to update destination")
-                                    else:
-                                        st.error("❌ Name cannot be empty")
-                            
-                            with col_cancel:
-                                if st.form_submit_button("❌ Cancel"):
-                                    st.session_state[f"editing_{destination['id']}"] = False
-                                    st.rerun()
-                    
-                    # Delete confirmation (appears when delete button is clicked)
-                    if st.session_state.get(f"confirm_delete_{destination['id']}", False):
-                        st.warning("⚠️ Are you sure you want to delete this destination? This will also delete all associated knowledge entries.")
-                        
-                        col_confirm, col_cancel = st.columns(2)
-                        with col_confirm:
-                            if st.button(
-                                "🗑️ Confirm Delete", 
-                                key=f"confirm_delete_btn_{destination['id']}",
-                                type="primary"
-                            ):
-                                success = api_client.delete_destination(destination['id'])
-                                if success:
-                                    st.success("✅ Destination deleted successfully!")
-                                    st.session_state[f"confirm_delete_{destination['id']}"] = False
-                                    st.rerun()
-                                else:
-                                    st.error("❌ Failed to delete destination")
-                        
-                        with col_cancel:
-                            if st.button(
-                                "❌ Cancel", 
-                                key=f"cancel_delete_{destination['id']}"
-                            ):
-                                st.session_state[f"confirm_delete_{destination['id']}"] = False
-                                st.rerun()
-                    
-                    st.markdown("---")
-    
-    else:
-        st.info(f"No destinations found matching '{search_term}'")
-    
-    # Statistics
-    if destinations and not isinstance(destinations, dict):
-        st.markdown("---")
-        st.subheader("📊 Statistics")
+        if not destinations:
+            st.info("🎯 No destinations found. Create your first destination above to get started!")
+            return
         
-        col1, col2, col3 = st.columns(3)
+        # Display destinations in a nice grid
+        for i, dest in enumerate(destinations):
+            render_destination_card(dest, i)
+            
+    except Exception as e:
+        st.error(f"❌ Failed to load destinations: {str(e)}")
+
+
+def render_destination_card(dest, index):
+    """Render a single destination card."""
+    with st.container():
+        # Create columns for layout
+        col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
+        
         with col1:
-            st.metric("Total Destinations", len(destinations))
+            st.markdown(f"### 🌍 {dest['name']}")
+            created_date = datetime.fromisoformat(dest['created_at'].replace('Z', '+00:00'))
+            st.caption(f"📅 Created: {created_date.strftime('%B %d, %Y')}")
+            
+            # Show destination ID for reference
+            with st.expander("🔍 Details"):
+                st.code(f"ID: {dest['id']}")
+        
         with col2:
-            if search_term:
-                st.metric("Filtered Results", len(filtered_destinations))
+            # View details button
+            if st.button("👁️ View", key=f"view_{dest['id']}", use_container_width=True):
+                view_destination_details(dest['id'])
+        
         with col3:
-            # This could be expanded to show knowledge entries count
-            st.metric("Active Searches", 1 if search_term else 0)
+            # Edit button
+            if st.button("✏️ Edit", key=f"edit_{dest['id']}", use_container_width=True):
+                st.session_state[f"editing_{dest['id']}"] = True
+                st.rerun()
+        
+        with col4:
+            # Delete button
+            if st.button("🗑️ Delete", key=f"delete_{dest['id']}", use_container_width=True):
+                st.session_state[f"confirm_delete_{dest['id']}"] = True
+                st.rerun()
+        
+        # Edit form (shown when edit button is clicked)
+        if st.session_state.get(f"editing_{dest['id']}", False):
+            render_edit_destination_form(dest)
+        
+        # Delete confirmation (shown when delete button is clicked)
+        if st.session_state.get(f"confirm_delete_{dest['id']}", False):
+            render_delete_confirmation(dest)
+        
+        st.markdown("---")
+
+
+def render_edit_destination_form(dest):
+    """Render the edit form for a destination."""
+    st.markdown(f"#### ✏️ Editing: {dest['name']}")
+    
+    with st.form(f"edit_form_{dest['id']}"):
+        new_name = st.text_input(
+            "New Name",
+            value=dest['name'],
+            placeholder="Enter new destination name"
+        )
+        
+        col1, col2, col3 = st.columns([1, 1, 2])
+        
+        with col1:
+            save = st.form_submit_button("💾 Save", use_container_width=True)
+        with col2:
+            cancel = st.form_submit_button("❌ Cancel", use_container_width=True)
+        
+        if save:
+            if not new_name.strip():
+                st.error("⚠️ Destination name cannot be empty.")
+                return
+            
+            try:
+                with st.spinner("💾 Updating destination..."):
+                    api_client = get_api_client()
+                    updated_dest = api_client.update_destination(dest['id'], new_name.strip())
+                    
+                    st.success(f"✅ Successfully updated to: **{updated_dest['name']}**")
+                    st.session_state[f"editing_{dest['id']}"] = False
+                    st.rerun()
+                    
+            except Exception as e:
+                st.error(f"❌ Failed to update destination: {str(e)}")
+        
+        if cancel:
+            st.session_state[f"editing_{dest['id']}"] = False
+            st.rerun()
+
+
+def render_delete_confirmation(dest):
+    """Render delete confirmation dialog."""
+    st.warning(f"⚠️ **Confirm Deletion**")
+    st.write(f"Are you sure you want to delete **{dest['name']}**?")
+    st.caption("⚠️ This action cannot be undone and will also delete all associated knowledge entries.")
+    
+    col1, col2, col3 = st.columns([1, 1, 2])
+    
+    with col1:
+        if st.button("🗑️ Delete", key=f"confirm_delete_yes_{dest['id']}", use_container_width=True):
+            try:
+                with st.spinner("🗑️ Deleting destination..."):
+                    api_client = get_api_client()
+                    api_client.delete_destination(dest['id'])
+                    
+                    st.success(f"✅ Successfully deleted: **{dest['name']}**")
+                    # Clear the confirmation state
+                    if f"confirm_delete_{dest['id']}" in st.session_state:
+                        del st.session_state[f"confirm_delete_{dest['id']}"]
+                    st.rerun()
+                    
+            except Exception as e:
+                st.error(f"❌ Failed to delete destination: {str(e)}")
+    
+    with col2:
+        if st.button("❌ Cancel", key=f"confirm_delete_no_{dest['id']}", use_container_width=True):
+            st.session_state[f"confirm_delete_{dest['id']}"] = False
+            st.rerun()
+
+
+def view_destination_details(destination_id):
+    """Show detailed view of a destination."""
+    try:
+        with st.spinner("🔍 Loading destination details..."):
+            api_client = get_api_client()
+            dest_details = api_client.get_destination(destination_id)
+        
+        # Use a modal-like expander
+        with st.expander(f"🌍 {dest_details['name']} - Details", expanded=True):
+            col1, col2 = st.columns([1, 1])
+            
+            with col1:
+                st.write("**Basic Information:**")
+                st.write(f"📍 **Name:** {dest_details['name']}")
+                st.write(f"🆔 **ID:** {dest_details['id']}")
+                created_date = datetime.fromisoformat(dest_details['created_at'].replace('Z', '+00:00'))
+                st.write(f"📅 **Created:** {created_date.strftime('%B %d, %Y at %I:%M %p')}")
+            
+            with col2:
+                st.write("**Knowledge Entries:**")
+                knowledge_entries = dest_details.get('knowledge_entries', [])
+                
+                if knowledge_entries:
+                    st.write(f"📚 **Total Entries:** {len(knowledge_entries)}")
+                    
+                    for entry in knowledge_entries:
+                        st.write(f"• **{entry['title']}** ({entry['scope']})")
+                else:
+                    st.info("No knowledge entries found for this destination.")
+                    st.write("💡 Go to the Knowledge Base page to add some!")
+        
+    except Exception as e:
+        st.error(f"❌ Failed to load destination details: {str(e)}")
